@@ -47,7 +47,7 @@
   },
   "discord": {
     "enabled": true,
-    "webhook_url": "https://discord.com/api/webhooks/1556042982141075486/6585gPaf2ilaSZDSpgV6SMZkvfUTgOA4fQ0tp_Fyrme6nM1_54gP5Ed7CEDtA8tM9LLA"
+    "webhook_url": ""
   },
   "paths": {
     "data_dir": "data",

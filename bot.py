@@ -25,6 +25,9 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import features
 from binance_client import BinanceClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def load_config(config_path="config.json"):
@@ -362,9 +365,9 @@ def get_macro_regime_threshold(client, config):
 def send_daily_digest(state, config):
     """Dispatches a comprehensive 24h portfolio performance digest embed to Discord."""
     discord_cfg = config.get("discord", {})
-    if not discord_cfg.get("enabled", False):
+    webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
+    if not discord_cfg.get("enabled", False) and not webhook:
         return False, "Discord alerts disabled."
-    webhook = discord_cfg.get("webhook_url", "")
 
     balance = state.get("balance_usdt", config["risk_management"]["capital_usdt"])
     init_cap = config["risk_management"]["capital_usdt"]
@@ -631,8 +634,8 @@ def execute_cycle(client, model_bundle, config):
 
     # 4. Discord alerts
     discord_cfg = config.get("discord", {})
-    if discord_cfg.get("enabled", False):
-        webhook = discord_cfg.get("webhook_url", "")
+    webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
+    if (discord_cfg.get("enabled", False) or webhook) and webhook:
         for s in new_signals:
             entry_p = s['price']
             tp2_p = s.get('tp2', entry_p * 1.02)
@@ -695,7 +698,7 @@ def main():
 
     if args.test_discord:
         d_cfg = config.get("discord", {})
-        webhook = d_cfg.get("webhook_url", "")
+        webhook = os.getenv("DISCORD_WEBHOOK_URL", d_cfg.get("webhook_url", "")).strip()
         fields = [
             {"name": "Status", "value": "Online & Operational", "inline": True},
             {"name": "Trading Mode", "value": config.get("trading_mode", "paper").upper(), "inline": True},
