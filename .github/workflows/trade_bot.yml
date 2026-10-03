@@ -1,0 +1,57 @@
+name: Binance AI 24/7 Cloud Trading Bot
+
+on:
+  schedule:
+    # Runs 5 minutes past every hour (UTC) right after 1h candle close
+    - cron: '5 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI / mobile app
+
+permissions:
+  contents: write
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Code & Bot State
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Live Binance AI Market Scan
+        env:
+          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+        run: |
+          python bot.py --scan
+
+      - name: Check & Dispatch Daily Performance Digest
+        env:
+          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+        run: |
+          # If running during 00:00 UTC hour, dispatch the 24h executive summary
+          CURRENT_HOUR=$(date -u +%H)
+          if [ "$CURRENT_HOUR" = "00" ]; then
+            python bot.py --digest
+          fi
+
+      - name: Persist Bot State & Trade Ledger
+        run: |
+          git config --global user.name "QuantLab Automated Bot"
+          git config --global user.email "bot@quantlab.internal"
+          git add bot_state.json logs/trade_history.csv config.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: persist bot state and trade ledger [skip ci]" && git push)

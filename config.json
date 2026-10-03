@@ -1,0 +1,59 @@
+{
+  "trading_mode": "paper",
+  "binance": {
+    "api_key": "",
+    "api_secret": "",
+    "testnet": false
+  },
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "BNB/USDT",
+    "XRP/USDT",
+    "DOGE/USDT",
+    "ADA/USDT",
+    "AVAX/USDT",
+    "LINK/USDT",
+    "NEAR/USDT"
+  ],
+  "timeframe": "1h",
+  "ai_model": {
+    "confidence_threshold": 0.60,
+    "lookback_bars": 300,
+    "horizon_bars": 12,
+    "tp1_atr_mult": 1.2,
+    "tp2_atr_mult": 2.4,
+    "sl_atr_mult": 1.4,
+    "partial_tp_ratio": 0.50,
+    "breakeven_lock_enabled": true
+  },
+  "mtf_confluence": {
+    "enabled": true,
+    "macro_timeframe": "4h",
+    "macro_ema_period": 50,
+    "macro_rsi_min": 48.0
+  },
+  "risk_management": {
+    "capital_usdt": 10.0,
+    "risk_per_trade_pct": 2.0,
+    "max_open_trades": 1,
+    "daily_max_drawdown_pct": 8.0,
+    "circuit_breaker_hours": 24,
+    "max_holding_hours": 48,
+    "dynamic_alpha_sizing": true,
+    "fee_rate": 0.00075,
+    "slippage_rate": 0.0005
+  },
+  "discord": {
+    "enabled": true,
+    "webhook_url": "https://discord.com/api/webhooks/1556042982141075486/6585gPaf2ilaSZDSpgV6SMZkvfUTgOA4fQ0tp_Fyrme6nM1_54gP5Ed7CEDtA8tM9LLA"
+  },
+  "paths": {
+    "data_dir": "data",
+    "models_dir": "models",
+    "logs_dir": "logs",
+    "state_file": "bot_state.json",
+    "trade_ledger": "logs/trade_history.csv"
+  }
+}

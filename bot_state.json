@@ -1,0 +1,25 @@
+{
+  "balance_usdt": 0.1999999999999993,
+  "peak_balance": 10.0,
+  "daily_peak_balance": 10.0,
+  "daily_reset_time": "2026-10-04T00:00:00+00:00",
+  "circuit_breaker_until": null,
+  "open_positions": {
+    "BTC/USDT": {
+      "entry_price": 84749.75,
+      "allocated_usdt": 9.8,
+      "units": 0.00011563455939398052,
+      "stop_loss": 84554.99100000001,
+      "take_profit_1": 84916.68628571428,
+      "take_profit_2": 85083.62257142857,
+      "tp1_reached": false,
+      "entry_time": "2026-10-03 21:15:55",
+      "confidence": 65.2,
+      "macro_4h": "BULLISH"
+    }
+  },
+  "trade_count": 0,
+  "win_count": 0,
+  "loss_count": 0,
+  "last_update": "2026-10-03 21:16:00"
+}

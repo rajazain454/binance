@@ -1,0 +1,21 @@
+# Python environment
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary IDE / agent files
+.agents/
+.system_generated/
+.vscode/
+.idea/
+
+# Large raw training cache files (live bot uses models/ and queries live candles)
+data/*.csv
+
+# Keep directory structure
+!data/.gitkeep
+!logs/.gitkeep
+!models/.gitkeep
