@@ -365,9 +365,11 @@ def get_macro_regime_threshold(client, config):
 def send_daily_digest(state, config):
     """Dispatches a comprehensive 24h portfolio performance digest embed to Discord."""
     discord_cfg = config.get("discord", {})
-    webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
-    if not discord_cfg.get("enabled", False) and not webhook:
+    if not discord_cfg.get("enabled", False):
         return False, "Discord alerts disabled."
+    webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
+    if not webhook:
+        return False, "Discord webhook URL not configured."
 
     balance = state.get("balance_usdt", config["risk_management"]["capital_usdt"])
     init_cap = config["risk_management"]["capital_usdt"]
@@ -635,7 +637,7 @@ def execute_cycle(client, model_bundle, config):
     # 4. Discord alerts
     discord_cfg = config.get("discord", {})
     webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
-    if (discord_cfg.get("enabled", False) or webhook) and webhook:
+    if discord_cfg.get("enabled", False) and webhook:
         for s in new_signals:
             entry_p = s['price']
             tp2_p = s.get('tp2', entry_p * 1.02)
