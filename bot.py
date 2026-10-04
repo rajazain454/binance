@@ -798,7 +798,13 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
         print("  RECENT CLOSED TRADES")
         print("-" * 88)
         for cs in closed_signals:
-            tag = "[+WIN]" if cs["outcome"] == "WIN" else "[-LOSS]"
+            action = cs.get("action", "")
+            if action == "BREAKEVEN LOCK (SMALL ACCOUNT)":
+                tag = "[🛡️ BE-LOCK]"
+            elif cs["outcome"] == "WIN":
+                tag = "[+WIN]"
+            else:
+                tag = "[-LOSS]"
             print(f"  {tag} {cs['symbol']} Net PnL: ${cs['net_pnl']:+,.2f} ({cs['pnl_pct']:+.2f}%) | {cs['reason']}")
 
     # New entries
@@ -857,18 +863,42 @@ def execute_cycle(client, model_bundle, config):
             send_discord_alert(webhook, title, fields, color=3066993, description=desc)
 
         for cs in closed_signals:
-            is_win = cs["outcome"] == "WIN"
-            color = 5763719 if is_win else 15548997
-            title = f"🎉 WON TRADE: {cs['symbol']}" if is_win else f"🛡️ TRADE CLOSED: {cs['symbol']}"
+            action = cs.get("action", "")
             pnl_val = cs['net_pnl']
             pnl_pct = cs['pnl_pct']
 
-            fields = [
-                {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
-                {"name": "💰 Profit / Loss", "value": f"**${pnl_val:+,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
-                {"name": "🏁 Sold At", "value": f"${cs['exit_price']:,.2f}", "inline": True},
-                {"name": "ℹ️ Reason", "value": cs["reason"], "inline": False}
-            ]
+            if action == "BREAKEVEN LOCK (SMALL ACCOUNT)":
+                title = f"🛡️ STOP LOSS MOVED TO BREAKEVEN: {cs['symbol']}"
+                color = 3447003  # Blue
+                fields = [
+                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
+                    {"name": "🔒 Trade Status", "value": "**100% Position Still Open (Risk-Free)**", "inline": True},
+                    {"name": "🎯 Trigger Price", "value": f"${cs['exit_price']:,.2f}", "inline": True},
+                    {"name": "🛡️ Protected Breakeven SL", "value": f"**${cs['entry_price']:,.2f}**", "inline": True},
+                    {"name": "ℹ️ Note", "value": cs["reason"], "inline": False},
+                    {"name": "🚀 Next Target", "value": "Position is still open and running risk-free toward TP2!", "inline": False}
+                ]
+            elif action == "PARTIAL TP1 (50% SOLD)":
+                title = f"🎯 TP1 HIT (50% PROFIT SECURED): {cs['symbol']}"
+                color = 5763719  # Green
+                fields = [
+                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
+                    {"name": "💰 Booked Profit (50%)", "value": f"**${pnl_val:+,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
+                    {"name": "🏁 Sold 50% At", "value": f"${cs['exit_price']:,.2f}", "inline": True},
+                    {"name": "🛡️ Remaining 50%", "value": f"Stop Loss locked to Entry (${cs['entry_price']:,.2f}) — Risk-Free!", "inline": False},
+                    {"name": "ℹ️ Reason", "value": cs["reason"], "inline": False}
+                ]
+            else:
+                is_win = cs["outcome"] == "WIN"
+                color = 5763719 if is_win else 15548997
+                title = f"🎉 WON TRADE: {cs['symbol']}" if is_win else f"🛡️ TRADE CLOSED: {cs['symbol']}"
+                fields = [
+                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
+                    {"name": "💰 Profit / Loss", "value": f"**${pnl_val:+,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
+                    {"name": "🏁 Sold At", "value": f"${cs['exit_price']:,.2f}", "inline": True},
+                    {"name": "ℹ️ Reason", "value": cs["reason"], "inline": False}
+                ]
+
             send_discord_alert(webhook, title, fields, color=color)
 
         # 5. Hourly Radar & Position Status Alert (when no buys/sells occurred)
