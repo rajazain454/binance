@@ -1,7 +1,7 @@
 {
   "balance_usdt": 0.20073785400546917,
   "peak_balance": 10.0,
-  "daily_peak_balance": 10.06,
+  "daily_peak_balance": 10.066892700273451,
   "daily_reset_time": "2026-10-04T00:00:00+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
@@ -15,12 +15,15 @@
       "tp1_reached": false,
       "entry_time": "2026-10-04 09:50:02",
       "confidence": 61.9,
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 791.85,
+      "unrealized_pnl": 0.03,
+      "unrealized_pnl_pct": 0.27
     }
   },
   "trade_count": 1,
   "win_count": 1,
   "loss_count": 0,
-  "last_update": "2026-10-04 09:50:04",
+  "last_update": "2026-10-04 09:58:00",
   "last_digest_date": "2026-10-04"
 }
