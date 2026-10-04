@@ -52,9 +52,20 @@ class BinanceClient:
             opts["apiKey"] = api_key
             opts["secret"] = api_secret
 
+        proxy = os.getenv("BINANCE_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+        if proxy:
+            opts["httpsProxy"] = proxy
+            opts["proxy"] = proxy
+
         self.exchange = ccxt.binance(opts)
         if is_testnet:
             self.exchange.set_sandbox_mode(True)
+
+        # Route public market data to data-api.binance.vision
+        # This completely resolves HTTP 451 geo-restrictions in cloud environments like GitHub Actions
+        use_vision = b_cfg.get("use_vision_api", True)
+        if use_vision and hasattr(self.exchange, "urls") and "api" in self.exchange.urls:
+            self.exchange.urls["api"]["public"] = "https://data-api.binance.vision/api/v3"
 
         self.has_credentials = bool(api_key and api_secret)
         self.markets_loaded = False

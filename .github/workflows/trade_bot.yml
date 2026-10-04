@@ -2,8 +2,10 @@ name: Binance AI 24/7 Cloud Trading Bot
 
 on:
   schedule:
-    # Runs 5 minutes past every hour (UTC) right after 1h candle close
-    - cron: '5 * * * *'
+    # Runs at minute 7 and 37 past every hour (UTC)
+    # Off-peak schedule avoids GitHub Actions peak queue congestion (:00 and :05)
+    # and provides 30-minute position monitoring for Stop-Loss & Take-Profit exits.
+    - cron: '7,37 * * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI / mobile app
 
 permissions:
@@ -36,6 +38,7 @@ jobs:
           BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
           BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BINANCE_PROXY: ${{ secrets.BINANCE_PROXY }}
         run: |
           python bot.py --scan
 
@@ -44,12 +47,9 @@ jobs:
           BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
           BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BINANCE_PROXY: ${{ secrets.BINANCE_PROXY }}
         run: |
-          # If running during 00:00 UTC hour, dispatch the 24h executive summary
-          CURRENT_HOUR=$(date -u +%H)
-          if [ "$CURRENT_HOUR" = "00" ]; then
-            python bot.py --digest
-          fi
+          python bot.py --digest
 
       - name: Persist Bot State & Trade Ledger
         run: |
@@ -57,3 +57,12 @@ jobs:
           git config --global user.email "bot@quantlab.internal"
           git add bot_state.json logs/trade_history.csv config.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: persist bot state and trade ledger [skip ci]" && git push)
+
+      - name: Notify on Unexpected Failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -H "Content-Type: application/json" -X POST -d '{"content": "⚠️ **QuantLab Cloud Alert**: The scheduled market scan encountered an error on GitHub Actions. Check repository Actions tab."}' "$DISCORD_WEBHOOK_URL" || true
+          fi

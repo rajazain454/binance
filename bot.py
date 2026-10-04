@@ -404,6 +404,9 @@ def send_daily_digest(state, config):
         desc = "Portfolio in 100% Cash Defense (No active open risk)."
 
     ok, res = send_discord_alert(webhook, "📊 DAILY PORTFOLIO PERFORMANCE DIGEST", fields, color=3447003, description=desc)
+    if ok:
+        state["last_digest_date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        save_state(state, config["paths"]["state_file"])
     return ok, res
 
 
@@ -687,14 +690,19 @@ def main():
     parser.add_argument("--capital", type=float, default=None, help="Override starting capital")
     parser.add_argument("--test-discord", action="store_true", help="Send a test embed to Discord")
     parser.add_argument("--digest", action="store_true", help="Send 24h portfolio digest embed to Discord")
+    parser.add_argument("--force", action="store_true", help="Force action (e.g. bypass digest frequency limit)")
 
     args = parser.parse_args()
     config = load_config(args.config)
 
     if args.digest:
         state = load_state(config["paths"]["state_file"], initial_capital=config["risk_management"]["capital_usdt"])
-        ok, res = send_daily_digest(state, config)
-        print(f"Daily digest dispatch result: {res}")
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if state.get("last_digest_date") == today_str and not args.force:
+            print(f"[Digest] Daily digest already dispatched for today ({today_str}). Skipping.")
+        else:
+            ok, res = send_daily_digest(state, config)
+            print(f"Daily digest dispatch result: {res}")
         if not args.scan and not args.loop:
             return
 
