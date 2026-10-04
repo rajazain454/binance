@@ -435,6 +435,7 @@ def scan_and_execute(client, model_bundle, state, config):
 
             feat_df = features.extract_features(df)
             atr_series = features.compute_atr(df, 14)
+            active_setups, strat_score, indicator_summary = features.detect_active_strategies(df)
 
             last_feats = feat_df.iloc[-1:][feat_names]
             prob_win = float(model.predict_proba(last_feats)[0, 1])
@@ -477,6 +478,9 @@ def scan_and_execute(client, model_bundle, state, config):
                 "price": c,
                 "atr": curr_atr,
                 "prob_win": prob_win,
+                "strategy_score": strat_score,
+                "active_setups": active_setups,
+                "indicators_summary": indicator_summary,
                 "high_conviction": is_high_conviction,
                 "mtf_status": mtf_info.get("status", "N/A"),
                 "status": status,
@@ -532,6 +536,9 @@ def scan_and_execute(client, model_bundle, state, config):
                             "tp1_reached": False,
                             "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                             "confidence": round(prob_win * 100, 1),
+                            "strategy_score": strat_score,
+                            "strategy_setups": active_setups or ["Quantitative Multi-Tool Confluence"],
+                            "indicators_summary": indicator_summary,
                             "macro_4h": mtf_info.get("status", "BULLISH")
                         }
 
@@ -545,6 +552,9 @@ def scan_and_execute(client, model_bundle, state, config):
                             "tp1": round(tp1, 4),
                             "tp2": round(tp2, 4),
                             "confidence_pct": round(prob_win * 100, 1),
+                            "strategy_score": strat_score,
+                            "strategy_setups": " + ".join(active_setups) if active_setups else "AI Quant Confluence",
+                            "indicators_summary": indicator_summary,
                             "macro_4h": mtf_info.get("status", "BULLISH"),
                             "mode": config.get("trading_mode", "paper").upper()
                         }
@@ -567,29 +577,32 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     total_alloc = sum(p.get("allocated_usdt", 0.0) for p in open_pos.values())
     total_equity = balance + total_alloc + total_unrealized
 
-    print("=" * 104)
+    print("=" * 108)
     print(f"  BINANCE QUANTITATIVE AI TRADING BOT  |  MODE: {mode}  |  TF: {config['timeframe']} (4H MTF: {'ON' if use_mtf else 'OFF'})")
-    print("=" * 104)
+    print("=" * 108)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)
     wr = (win_cnt / total_cnt * 100) if total_cnt > 0 else 0.0
 
     print(f"  Equity (MtM): ${total_equity:,.2f} USDT  |  Free Cash: ${balance:,.2f}  |  Active Alloc: ${total_alloc:,.2f}  |  Unrealized: ${total_unrealized:+,.2f}")
     print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Circuit Breaker: {cb_status}  |  Total Trades: {total_cnt}  |  Win Rate: {wr:.1f}%")
-    print("-" * 104)
+    print("-" * 108)
 
-    # Market Radar Table with 4h MTF column
-    print(f"{'Symbol':<10} {'Price':>10} {'AI Win Prob':>12} {'Threshold':>10} {'4h Trend':>10} {'Status':<16} {'ATR(14)':>9}")
-    print("-" * 104)
+    # Market Radar Table with Strategy Setups
+    print(f"{'Symbol':<10} {'Price':>10} {'AI Win Prob':>12} {'Strategy Setup':<34} {'4h Trend':>10} {'Status':<15}")
+    print("-" * 108)
     for r in analysis_rows:
         conv_tag = "[BUY TRIGGER]" if r["status"] == "BUY TRIGGER" else (r["status"])
-        print(f"{r['symbol']:<10} {r['price']:>10.4f} {r['prob_win']:>11.1%} {config['ai_model']['confidence_threshold']:>9.0%} "
-              f"{r['mtf_status']:>10} {conv_tag:<16} {r['atr']:>9.4f}")
+        setups_str = ", ".join(r.get("active_setups", [])) if r.get("active_setups") else "Consolidating"
+        if len(setups_str) > 32:
+            setups_str = setups_str[:29] + "..."
+        print(f"{r['symbol']:<10} {r['price']:>10.4f} {r['prob_win']:>11.1%} {setups_str:<34} "
+              f"{r['mtf_status']:>10} {conv_tag:<15}")
 
     # Active Holdings
-    print("\n" + "-" * 104)
+    print("\n" + "-" * 108)
     print("  ACTIVE OPEN POSITIONS & LIVE MARK-TO-MARKET PERFORMANCE")
-    print("-" * 104)
+    print("-" * 108)
     if not open_pos:
         print("  No active positions. Scanning Binance market for high-probability setups...")
     else:
@@ -619,7 +632,8 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
         print("  NEW EXECUTED ORDERS")
         print("-" * 88)
         for ns in new_signals:
-            print(f"  [NEW ORDER] {ns['action']} {ns['symbol']} @ ${ns['price']:.4f} | Size: ${ns['size_usdt']} USDT | Conf: {ns['confidence_pct']}%")
+            strat_info = ns.get("strategy_setups", "Quant Confluence")
+            print(f"  [NEW ORDER] {ns['action']} {ns['symbol']} @ ${ns['price']:.4f} | Size: ${ns['size_usdt']} USDT | Conf: {ns['confidence_pct']}% | Strategy: {strat_info}")
 
     print("=" * 88 + "\n")
 
@@ -648,6 +662,10 @@ def execute_cycle(client, model_bundle, config):
             est_win_pct = ((tp2_p / entry_p) - 1.0) * 100
             est_loss_pct = ((sl_p / entry_p) - 1.0) * 100
 
+            strat_label = s.get("strategy_setups", "AI Multi-Tool Confluence")
+            strat_score_val = s.get("strategy_score", s.get("confidence_pct", 60.0))
+            ind_summary = s.get("indicators_summary", "RSI / Bollinger / StochRSI Aligned")
+
             fields = [
                 {"name": "🪙 Coin", "value": f"**{s['symbol']}**", "inline": True},
                 {"name": "💵 Amount Bought", "value": f"**${s['size_usdt']:.2f} USDT**", "inline": True},
@@ -655,10 +673,12 @@ def execute_cycle(client, model_bundle, config):
                 {"name": "🎯 Target Price (Take Profit)", "value": f"**${tp2_p:,.2f}** ({est_win_pct:+.2f}%)", "inline": True},
                 {"name": "🛡️ Safety Price (Stop Loss)", "value": f"${sl_p:,.2f} ({est_loss_pct:+.2f}%)", "inline": True},
                 {"name": "🤖 AI Confidence", "value": f"**{s['confidence_pct']:.0f}%**", "inline": True},
+                {"name": "🎯 Strategy Setup", "value": f"**{strat_label}** (Score: {strat_score_val:.0f}/100)", "inline": False},
+                {"name": "📊 Technical Indicators", "value": f"`{ind_summary}`", "inline": False},
                 {"name": "📌 Next Steps", "value": "Sit back! The bot is watching the market and will exit automatically.", "inline": False}
             ]
             title = f"🟢 BOUGHT {s['symbol']} (${s['size_usdt']:.2f})"
-            desc = f"The AI detected a high-probability buying opportunity on **{s['symbol']}**."
+            desc = f"The AI detected a high-probability buying opportunity on **{s['symbol']}** using **{strat_label}**."
             send_discord_alert(webhook, title, fields, color=3066993, description=desc)
 
         for cs in closed_signals:

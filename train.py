@@ -1,7 +1,7 @@
 """Machine Learning Training Pipeline for Binance Quantitative Trading.
-Pulls Binance market data, extracts features, applies Triple-Barrier labeling,
-trains an ensemble Gradient Boosting model, validates out-of-sample performance,
-and saves the calibrated model artifact.
+Pulls Binance market data, extracts multi-tool strategy features,
+applies Triple-Barrier labeling, trains an ensemble Gradient Boosting model,
+validates out-of-sample performance, and saves the calibrated model artifact.
 """
 
 import os
@@ -23,8 +23,8 @@ def load_config(config_path="config.json"):
         return json.load(f)
 
 
-def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data", offline=False):
-    """Fetches Binance data, computes features and labels for each symbol."""
+def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data", offline=False):
+    """Fetches Binance data or loads 365d cache, computes features and labels for each symbol."""
     ai_cfg = ai_cfg or {}
     horizon = ai_cfg.get("horizon_bars", 12)
     tp_mult = ai_cfg.get("tp_atr_mult", 2.2)
@@ -39,9 +39,18 @@ def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data",
         clean_sym = sym.replace("/", "_")
         cache_file = os.path.join(data_dir, f"binance_{clean_sym}_{tf}.csv")
 
-        if offline and os.path.exists(cache_file):
+        if (offline or os.path.exists(cache_file)):
             print(f"Loading {sym} from local cache ({cache_file})...")
             df = pd.read_csv(cache_file, index_col=0, parse_dates=True)
+            if len(df) < 500 and not offline:
+                print(f"  Cached data has only {len(df)} bars, fetching fresh {days} days from Binance...")
+                try:
+                    fresh_df = client.fetch_historical_ohlcv(sym, timeframe=tf, days=days)
+                    if not fresh_df.empty:
+                        df = fresh_df
+                        df.to_csv(cache_file)
+                except Exception as e:
+                    print(f"  [Warning] Could not fetch fresh data: {e}")
         else:
             print(f"Fetching Binance {sym} ({tf}) history ({days} days)...")
             try:
@@ -50,11 +59,7 @@ def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data",
                     df.to_csv(cache_file)
             except Exception as e:
                 print(f"  [Warning] Failed to fetch live data for {sym}: {e}")
-                if os.path.exists(cache_file):
-                    print(f"  Falling back to cached data...")
-                    df = pd.read_csv(cache_file, index_col=0, parse_dates=True)
-                else:
-                    df = pd.DataFrame()
+                df = pd.DataFrame()
 
         if len(df) < 200:
             print(f"  [Skip] Insufficient bars for {sym} ({len(df)} bars)")
@@ -68,7 +73,6 @@ def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data",
 
         # Align
         common_idx = feat_df.index.intersection(labels.index).intersection(fwd_ret.index)
-        # Drop the last horizon bars where labels are incomplete
         valid_idx = common_idx[:-horizon] if len(common_idx) > horizon else common_idx
 
         X_sym = feat_df.loc[valid_idx]
@@ -78,7 +82,7 @@ def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data",
         all_X.append(X_sym)
         all_y.append(y_sym)
         all_ret.append(ret_sym)
-        print(f"  [OK] {sym}: {len(X_sym)} clean feature samples extracted.")
+        print(f"  [OK] {sym}: {len(X_sym):,} feature samples with full mathematical indicators.")
 
     if not all_X:
         raise ValueError("No data could be processed. Please check your network connection or Binance symbols.")
@@ -91,7 +95,7 @@ def prepare_dataset(client, symbols, tf, days=180, ai_cfg=None, data_dir="data",
 
 
 def train_model(X, y, fwd_returns, config):
-    """Trains a Gradient Boosting model with chronological train/test split."""
+    """Trains an optimized Gradient Boosting ensemble with exponential time-decay weighting."""
     feature_names = list(X.columns)
     ai_cfg = config.get("ai_model", {})
     conf_thresh = ai_cfg.get("confidence_threshold", 0.60)
@@ -103,27 +107,29 @@ def train_model(X, y, fwd_returns, config):
     y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
     ret_test = fwd_returns.iloc[split_idx:]
 
-    print("\n" + "=" * 70)
-    print("  TRAINING BINANCE AI MODEL (HistGradientBoostingClassifier)")
-    print("=" * 70)
-    print(f"  Total Samples: {len(X):,}  |  Train: {len(X_train):,}  |  Out-of-Sample Test: {len(X_test):,}")
-    print(f"  Features: {len(feature_names)} quantitative indicators")
+    print("\n" + "=" * 75)
+    print("  TRAINING BINANCE AI MODEL (HistGradientBoostingClassifier with Quant Setups)")
+    print("=" * 75)
+    print(f"  Total Clean Samples: {len(X):,}  |  Train: {len(X_train):,}  |  Out-of-Sample Test: {len(X_test):,}")
+    print(f"  Mathematical Alpha Features: {len(feature_names)} indicators")
     print(f"  Baseline Setup Win Rate: {y.mean():.1%}")
 
     # Compute Exponential Time-Decay Sample Weights (half-life weighting)
     n_train = len(X_train)
-    half_life_samples = max(500, n_train // 3)
+    half_life_samples = max(1000, n_train // 4)
     decay_rate = np.log(2.0) / half_life_samples
     time_weights = np.exp(-decay_rate * (n_train - 1 - np.arange(n_train)))
     time_weights = time_weights / time_weights.mean()
 
-    # Initialize and fit Gradient Boosting with time-decay sample weighting
+    # Initialize and fit Gradient Boosting with regularized tree ensemble
     model = HistGradientBoostingClassifier(
-        max_iter=200,
-        learning_rate=0.035,
-        max_leaf_nodes=35,
-        min_samples_leaf=25,
-        l2_regularization=2.0,
+        max_iter=250,
+        learning_rate=0.03,
+        max_leaf_nodes=40,
+        min_samples_leaf=30,
+        l2_regularization=3.0,
+        early_stopping=True,
+        n_iter_no_change=15,
         class_weight="balanced",
         random_state=42
     )
@@ -155,9 +161,9 @@ def train_model(X, y, fwd_returns, config):
         total_pnl = 0.0
         profit_factor = 0.0
 
-    print("-" * 70)
-    print("  OUT-OF-SAMPLE TEST RESULTS (Unseen Forward Data)")
-    print("-" * 70)
+    print("-" * 75)
+    print("  OUT-OF-SAMPLE TEST RESULTS (Unseen Forward 20% Data)")
+    print("-" * 75)
     print(f"  ROC-AUC Score:                 {auc_score:.3f}")
     print(f"  Confidence Threshold:          {conf_thresh:.0%}")
     print(f"  High-Conviction Trade Signals: {n_high_conf} trades")
@@ -169,16 +175,16 @@ def train_model(X, y, fwd_returns, config):
     # Top Feature Importance
     try:
         from sklearn.inspection import permutation_importance
-        perm = permutation_importance(model, X_test.iloc[:500], y_test.iloc[:500], n_repeats=3, random_state=42)
-        top_feats = pd.Series(perm.importances_mean, index=feature_names).nlargest(6)
+        perm = permutation_importance(model, X_test.iloc[:1000], y_test.iloc[:1000], n_repeats=3, random_state=42)
+        top_feats = pd.Series(perm.importances_mean, index=feature_names).nlargest(8)
         print("\n  Top Mathematical Alpha Indicators:")
         for rank, (fname, fval) in enumerate(top_feats.items(), 1):
-            print(f"    {rank}. {fname:<22} (Importance: {fval:+.4f})")
-    except Exception:
-        pass
-    print("=" * 70 + "\n")
+            print(f"    {rank}. {fname:<28} (Importance: {fval:+.4f})")
+    except Exception as e:
+        print(f"  [Note] Feature importance skipped: {e}")
+    print("=" * 75 + "\n")
 
-    # Package the bundle
+    # Package the calibrated bundle
     bundle = {
         "model": model,
         "feature_names": feature_names,
@@ -199,7 +205,7 @@ def train_model(X, y, fwd_returns, config):
 def main():
     parser = argparse.ArgumentParser(description="Train Binance Quantitative AI Model")
     parser.add_argument("--config", default="config.json", help="Path to config file")
-    parser.add_argument("--days", type=int, default=180, help="Days of historical Binance data to fetch")
+    parser.add_argument("--days", type=int, default=365, help="Days of historical Binance data")
     parser.add_argument("--offline", action="store_true", help="Use locally cached data without network calls")
     parser.add_argument("--symbols", nargs="+", default=None, help="Custom list of symbols to train on")
     parser.add_argument("--timeframe", default=None, help="Candle timeframe (e.g. 1h, 4h)")
