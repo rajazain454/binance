@@ -31,6 +31,9 @@ def main():
     for idx, sym in enumerate(symbols, 1):
         clean_sym = sym.replace("/", "_")
         cache_file = os.path.join(data_dir, f"binance_{clean_sym}_{tf}.csv")
+        if os.path.exists(cache_file) and os.path.getsize(cache_file) > 10000:
+            print(f"[{idx}/{len(symbols)}] [CACHE EXISTS] {sym} already cached, skipping.")
+            continue
         print(f"\n[{idx}/{len(symbols)}] Fetching {sym} ({days} days)...")
         t0 = time.time()
         try:
