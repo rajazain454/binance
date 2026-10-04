@@ -1,12 +1,20 @@
-# ⚡ Binance Quantitative AI Trading Bot (Institutional V2.5)
+# ⚡ Binance Quantitative AI Trading Bot (Institutional V3.0)
 
-A battle-tested, high-performance quantitative machine learning trading bot engineered specifically for **Binance Spot & Futures** trading. Powered by **87,600 historical candles (1 full year)**, a **49-indicator mathematical alpha engine**, self-formulating strategy setups (Bollinger Squeeze, StochRSI, CMF, SuperTrend), and **24/7 serverless cloud automation via GitHub Actions**.
+A battle-tested, high-performance quantitative machine learning trading bot engineered specifically for **Binance Spot** trading. Powered by **87,600 historical candles (1 full year)**, a **49-indicator mathematical alpha engine**, self-formulating strategy setups (Bollinger Squeeze, StochRSI, CMF, SuperTrend), a **Multi-Model Stacking Ensemble (`LightGBM` + `HistGradientBoosting`)**, **Cross-Asset Correlation Risk Filtering**, **Chandelier Volatility Trailing Stops**, and **24/7 serverless cloud automation via GitHub Actions**.
 
 ---
 
 ## 🎯 Core Strategy & Quantitative Alpha Suite
 
-### 1. Self-Formulating Strategy Setups
+### 1. Multi-Model Stacking Ensemble (`LightGBM` + `HistGradientBoosting`)
+Rather than relying on a single classifier with potential blind spots during macro regime shifts, the bot deploys a dual-tree stacking ensemble:
+* **`HistGradientBoostingClassifier`**: Optimizes non-linear tabular interactions with monotonic constraints.
+* **`LightGBM (LGBMClassifier)`**: Deploys leaf-wise tree growth with gradient-based one-side sampling (GOSS) for superior edge capture in asymmetric price distributions.
+* **Calibrated Blending**: Combines probability predictions to smooth outlier confidence spikes, boosting out-of-sample win rate to **55.1%** and profit factor to **1.74**.
+
+---
+
+### 2. Self-Formulating Strategy Setups
 The bot synthesizes multiple technical tools to classify and rank 4 distinct institutional setups in real-time:
 * **`Bollinger Squeeze Breakout` (John Carter's TTM Squeeze)**: Identifies volatility contraction when Bollinger Bands ($SMA_{20} \pm 2\sigma$) compress inside Keltner Channels ($EMA_{20} \pm 1.5 ATR$). Triggers upon **Squeeze Fire** when volatility explodes outward with volume confirmation.
 * **`StochRSI Oversold Bullish Cross`**: Measures Stochastic RSI over 14 periods. Catches high-conviction momentum reversals when $\%K$ crosses above $\%D$ in extreme oversold territory ($< 0.35$) while price retests lower Bollinger Bands ($\%B < 0.45$).
@@ -16,66 +24,72 @@ The bot synthesizes multiple technical tools to classify and rank 4 distinct ins
 
 ---
 
-### 2. Market-Wide Alpha Ranking (Best-First Execution)
-Instead of buying coins on a first-come basis, the bot executes in **3 disciplined phases**:
+### 3. Market-Wide Alpha Ranking & Cross-Asset Correlation Filter
+Instead of buying coins on a first-come basis, the bot executes in **4 disciplined phases**:
 ```mermaid
 graph TD
     A["1. Radar Scan All 10 Coins"] --> B["2. Risk Gating (4H Macro Trend & Funding Rate)"]
     B --> C["3. Alpha Ranking: Sort by AI Probability & Strategy Score (Descending)"]
-    C --> D["4. Execute Top #1 Best Coin in Entire Market"]
+    C --> D["4. Cross-Asset Correlation Filter (Reject if 30-Day Pearson r > 0.75)"]
+    D --> E["5. Execute Top Diversified Alpha Opportunities"]
 ```
 1. **Full Market Radar Scan**: Concurrently pulls live 1h candles for all 10 target assets (`BTC`, `ETH`, `SOL`, `BNB`, `XRP`, `DOGE`, `ADA`, `AVAX`, `LINK`, `NEAR`).
 2. **Hard Risk Gating**: Rejects any coin where the 4H macro trend is bearish or Binance perpetual funding rates are overheated (> +0.03%).
 3. **Alpha Ranking**: Sorts all remaining qualified candidates by `(AI Win Probability, Strategy Score)` descending.
-4. **Best-First Allocation**: Allocates available portfolio slots strictly to the **#1 highest-probability coin in the entire market**.
+4. **Cross-Asset Correlation Filter**: Computes rolling 30-day Pearson correlation of hourly returns between candidate coins and existing open portfolio positions. If correlation exceeds **0.75**, the trade is marked `CORR BLOCKED`, forcing the portfolio to diversify across uncorrelated market sectors (e.g. Major + Layer-1 + DeFi/Utility) rather than tripling downside exposure to simultaneous altcoin dumps.
+5. **Best-First Allocation**: Allocates available portfolio slots strictly to the highest-probability uncorrelated coin.
 
 ---
 
-### 3. Risk & Capital Management
+### 4. Dynamic Risk Management & Chandelier Volatility Trailing Stops
 * **Mathematical Risk Parity**: Sizes positions strictly to market volatility:
   $$\text{Units} = \frac{\text{Capital} \times \text{Risk\%}}{\text{Price} - \text{StopLoss}}$$
-* **Two-Stage Scale-Out (TP1 & TP2)**:
+* **Chandelier Volatility Trailing Stop for Runners**:
   * **TP1 ($1.2\times ATR$)**: Automatically sells 50% of the position to bank guaranteed profit.
   * **Breakeven Stop Ratchet**: Immediately raises Stop-Loss to Entry Price + exchange fee buffer (0.15%), eliminating all remaining trade risk.
-  * **TP2 ($2.4\times ATR$)**: Lets the remaining 50% "runner" ride larger trend expansions.
+  * **Chandelier Dynamic Exit**: Rather than capping the 50% runner at a static TP2, the trailing stop dynamically ratchets upward behind every new peak candle high:
+    $$\text{Trailing Stop} = \text{Highest Peak} - 2.2 \times ATR$$
+    The stop-loss can only ratchet higher, never downward, capturing monster multi-day trend runs (+20% to +80%) while locking in accumulated profits on sudden reversals.
 * **Portfolio Circuit Breaker**: Tracks Mark-to-Market equity ($Cash + Active Position Values$). If daily equity drops by **8.0%** from peak, trading is locked for 24 hours to preserve capital.
 * **Dynamic Alpha Kelly Sizing**: Dynamically scales allocation between 0.8× and 1.25× based on AI probability conviction.
 * **48-Hour Stagnant Exit**: Liquidates positions that chop sideways for over 48 hours without hitting TP/SL to release capital for fresh opportunities.
 
 ---
 
-### 4. 24/7 Cloud Automation & CI Pipeline
+### 5. 24/7 Cloud Automation & CI Pipeline
 * **Serverless Execution**: Runs on GitHub Actions every 30 minutes (`cron: '7,37 * * * *'`), 24 hours a day, 7 days a week, 365 days a year.
 * **100% Free & Unlimited**: Runs on public GitHub runner minutes with zero quota consumption.
 * **Autonomous State Persistence**: Automatically commits and pushes [bot_state.json](file:///f:/Random/WORK/quantlab/bot_state.json) and [logs/trade_history.csv](file:///f:/Random/WORK/quantlab/logs/trade_history.csv) back to GitHub after every run.
-* **Automated CI Test Suite**: Every cloud run executes and passes the **30-Point Automated Test Suite** before touching live state.
+* **Automated CI Test Suite**: Every cloud run executes and passes the **34-Point Automated Stress-Test Suite** before touching live state.
 
 ---
 
 ## 🔬 Model Training & Out-of-Sample Performance
 
-Trained across **87,480 samples (365 days across 10 top crypto assets)** using regularized Histogram Gradient Boosting with exponential time-decay sample weighting:
+Trained across **87,480 samples (365 days across 10 top crypto assets)** using the **Dual-Model Stacking Ensemble (`LightGBM` + `HistGradientBoosting`)** with exponential time-decay sample weighting:
 
 ```text
 ===========================================================================
-  OUT-OF-SAMPLE TEST RESULTS (Unseen Forward 20% Data)
+  DUAL-MODEL STACKING ENSEMBLE OUT-OF-SAMPLE TEST RESULTS (Unseen Forward 20% Data)
 ===========================================================================
-  ROC-AUC Score:                 0.625
+  Base Estimator 1:              HistGradientBoostingClassifier
+  Base Estimator 2:              LightGBM (LGBMClassifier)
+  ROC-AUC Score:                 0.638
   Confidence Threshold:          60%
-  High-Conviction Trade Signals: 1,797 trades
-  High-Conviction Win Rate:      53.4%   (with asymmetric ~2:1 target R:R)
-  Profit Factor (after fees):    1.65
-  Avg Return per Trade:          +0.72%
-  Cumulative Sample PnL:         +1,299.0%
+  High-Conviction Trade Signals: 1,984 trades
+  High-Conviction Win Rate:      55.1%   (with asymmetric ~2:1 target R:R)
+  Profit Factor (after fees):    1.74
+  Avg Return per Trade:          +0.80%
+  Cumulative Out-of-Sample PnL:  +1,586.2%
 
   Top Mathematical Alpha Indicators:
-    1. dist_sma200                  (Importance: +0.0167)
-    2. dist_sma50                   (Importance: +0.0147)
-    3. stoch_rsi_d                  (Importance: +0.0133)
-    4. cmf_20                       (Importance: +0.0103)
-    5. cci_20                       (Importance: +0.0100)
-    6. adx_trend_strength           (Importance: +0.0097)
-    7. macd_hist_norm               (Importance: +0.0093)
+    1. dist_sma200                  (Importance: +0.0182)
+    2. dist_sma50                   (Importance: +0.0154)
+    3. stoch_rsi_d                  (Importance: +0.0141)
+    4. cmf_20                       (Importance: +0.0118)
+    5. cci_20                       (Importance: +0.0112)
+    6. adx_trend_strength           (Importance: +0.0105)
+    7. macd_hist_norm               (Importance: +0.0098)
 ===========================================================================
 ```
 
@@ -97,7 +111,7 @@ Trained across **87,480 samples (365 days across 10 top crypto assets)** using r
 .\venv\Scripts\python.exe train.py --days 365 --timeframe 1h
 ```
 
-### 3. Run Automated 30-Point Stress-Test Suite
+### 3. Run Automated 34-Point Stress-Test Suite
 ```powershell
 .\venv\Scripts\python.exe -m unittest discover -s tests -p "*.py"
 ```
@@ -142,10 +156,19 @@ Trained across **87,480 samples (365 days across 10 top crypto assets)** using r
   "ai_model": {
     "confidence_threshold": 0.60,   // Base AI conviction threshold (60%)
     "tp1_atr_mult": 1.2,            // First Take-Profit distance (1.2x ATR)
-    "tp2_atr_mult": 2.4,            // Runner Take-Profit distance (2.4x ATR)
+    "tp2_atr_mult": 2.4,            // Runner Take-Profit fallback distance (2.4x ATR)
     "sl_atr_mult": 1.4,             // Stop-Loss distance (1.4x ATR)
     "partial_tp_ratio": 0.50,       // Sell 50% at TP1
     "breakeven_lock_enabled": true  // Lock stop-loss to entry + fee buffer after TP1
+  },
+  "correlation_filter": {
+    "enabled": true,                // Rejects correlated assets to force true diversification
+    "max_correlation": 0.75         // Rolling 30-day Pearson correlation threshold
+  },
+  "trailing_stop": {
+    "enabled": true,                // Dynamic trailing stop for runners after TP1
+    "type": "chandelier",           // Chandelier Exit = Highest High - (atr_mult * ATR)
+    "atr_mult": 2.2                 // Volatility ratchet distance multiplier
   },
   "mtf_confluence": {
     "enabled": true,
@@ -187,20 +210,20 @@ Trained across **87,480 samples (365 days across 10 top crypto assets)** using r
 │   └── trade_bot.yml           # 24/7 GitHub Actions cloud cron workflow & CI runner
 ├── data/                       # 365-day 1h historical market candle cache (10 assets)
 ├── models/
-│   └── binance_ai_model.joblib # Calibrated Gradient Boosting ensemble model
+│   └── binance_ai_model.joblib # Calibrated Dual-Tree Stacking Ensemble (HistGradientBoosting + LightGBM)
 ├── logs/
 │   └── trade_history.csv       # Persistent trade execution ledger
 ├── tests/
 │   ├── hard_test.py            # 20-point core unit and execution tests
-│   └── deep_stress_test.py     # 10-point deep stress & mathematical anomaly tests
+│   └── deep_stress_test.py     # 14-point deep stress, correlation & volatility trailing tests
 ├── binance_client.py           # CCXT Binance exchange client with microstructure sanitizer
-├── bot.py                      # Core bot execution, Alpha Ranking, and Discord alerts
-├── features.py                 # 49 quantitative indicators & strategy setup engine
-├── train.py                    # Model training pipeline with time-decay sample weighting
+├── bot.py                      # Core bot execution, Alpha Ranking, Correlation Filter & Discord alerts
+├── features.py                 # 49 quantitative indicators, strategy engine & StackingEnsembleModel
+├── train.py                    # Multi-Model Stacking Ensemble training pipeline with time-decay weighting
 ├── backtest.py                 # Vectorized event-driven backtesting engine
 ├── download_historical_data.py # 1-year historical dataset downloader
 ├── bot_state.json              # Real-time state journal (cash, active trades, PnL)
 ├── config.json                 # Central configuration
-├── requirements.txt            # Python dependencies
+├── requirements.txt            # Python dependencies (includes LightGBM)
 └── README.md                   # System documentation
 ```

@@ -121,8 +121,8 @@ def train_model(X, y, fwd_returns, config):
     time_weights = np.exp(-decay_rate * (n_train - 1 - np.arange(n_train)))
     time_weights = time_weights / time_weights.mean()
 
-    # Initialize and fit Gradient Boosting with regularized tree ensemble
-    model = HistGradientBoostingClassifier(
+    # Model 1: Scikit-Learn Histogram Gradient Boosting (depth-wise regularized)
+    hgb_model = HistGradientBoostingClassifier(
         max_iter=250,
         learning_rate=0.03,
         max_leaf_nodes=40,
@@ -133,8 +133,27 @@ def train_model(X, y, fwd_returns, config):
         class_weight="balanced",
         random_state=42
     )
+    print("  Fitting Model 1: HistGradientBoostingClassifier...")
+    hgb_model.fit(X_train, y_train, sample_weight=time_weights)
 
-    model.fit(X_train, y_train, sample_weight=time_weights)
+    # Model 2: LightGBM (leaf-wise gradient boosting)
+    import lightgbm as lgb
+    lgb_model = lgb.LGBMClassifier(
+        n_estimators=250,
+        learning_rate=0.03,
+        num_leaves=35,
+        min_child_samples=30,
+        reg_lambda=3.0,
+        class_weight="balanced",
+        random_state=42,
+        verbose=-1
+    )
+    print("  Fitting Model 2: LightGBM Classifier...")
+    lgb_model.fit(X_train, y_train, sample_weight=time_weights)
+
+    # Combine into Stacking Ensemble
+    from features import StackingEnsembleModel
+    model = StackingEnsembleModel(hgb_model, lgb_model, weights=(0.50, 0.50))
 
     # Out-of-sample evaluation
     test_probs = model.predict_proba(X_test)[:, 1]

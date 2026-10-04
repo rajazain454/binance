@@ -34,6 +34,16 @@
     "macro_ema_period": 50,
     "macro_rsi_min": 48.0
   },
+  "correlation_filter": {
+    "enabled": true,
+    "max_correlation": 0.75,
+    "lookback_bars": 720
+  },
+  "trailing_stop": {
+    "enabled": true,
+    "type": "chandelier",
+    "atr_mult": 2.2
+  },
   "risk_management": {
     "capital_usdt": 10.0,
     "risk_per_trade_pct": 2.0,

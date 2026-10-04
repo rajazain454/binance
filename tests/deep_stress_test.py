@@ -305,5 +305,187 @@ class TestMicrostructureSanitization(unittest.TestCase):
         self.assertEqual(clean_price, 80000.00)
 
 
+class TestCrossAssetCorrelationFilter(unittest.TestCase):
+    """Stress tests for Cross-Asset 30-Day Pearson Correlation Filter."""
+
+    def test_correlation_filter_blocks_correlated_asset_and_picks_diversified(self):
+        """When holding BTC, highly correlated ETH (>0.75) must be blocked, allowing low-corr SOL."""
+        mock_client = MagicMock()
+        mock_client.fetch_funding_rate.return_value = 0.0001
+        dates = pd.date_range("2026-01-01", periods=100, freq="1h", tz="UTC")
+        mock_df = pd.DataFrame({"open": 100, "high": 102, "low": 98, "close": 101, "volume": 1000}, index=dates)
+        mock_client.fetch_ohlcv.return_value = mock_df
+
+        feats = features.extract_features(mock_df)
+        mock_model = MagicMock()
+        mock_model.predict_proba.return_value = np.array([[0.2, 0.8]])
+        mock_bundle = {"model": mock_model, "feature_names": list(feats.columns)}
+
+        state = {
+            "balance_usdt": 2000.0,
+            "open_positions": {
+                "BTC/USDT": {"entry_price": 80000.0, "allocated_usdt": 500.0, "units": 0.00625, "stop_loss": 78000.0}
+            },
+            "daily_peak_balance": 2000.0,
+            "daily_reset_time": datetime.now(timezone.utc).isoformat(),
+            "circuit_breaker_until": None
+        }
+
+        config = {
+            "trading_mode": "paper",
+            "symbols": ["ETH/USDT", "SOL/USDT"],
+            "timeframe": "1h",
+            "ai_model": {"confidence_threshold": 0.60, "tp1_atr_mult": 1.2, "tp2_atr_mult": 2.4, "sl_atr_mult": 1.4},
+            "risk_management": {"capital_usdt": 2000.0, "risk_per_trade_pct": 2.0, "max_open_trades": 2, "fee_rate": 0.00075, "slippage_rate": 0.0005},
+            "mtf_confluence": {"enabled": False},
+            "correlation_filter": {"enabled": True, "max_correlation": 0.75},
+            "paths": {"trade_ledger": "logs/test_ledger_corr.csv", "data_dir": "data"}
+        }
+
+        def mock_corr(s1, s2, data_dir="data"):
+            # BTC vs ETH is high correlation 0.88, BTC vs SOL is low correlation 0.42
+            pair = tuple(sorted([s1, s2]))
+            if ("BTC/USDT", "ETH/USDT") == pair:
+                return 0.88
+            elif ("BTC/USDT", "SOL/USDT") == pair:
+                return 0.42
+            return 0.10
+
+        with patch("bot.compute_asset_correlation", side_effect=mock_corr):
+            rows, new_signals, _ = bot.scan_and_execute(mock_client, mock_bundle, state, config)
+
+        eth_row = next(r for r in rows if r["symbol"] == "ETH/USDT")
+        sol_row = next(r for r in rows if r["symbol"] == "SOL/USDT")
+
+        self.assertEqual(eth_row["status"], "CORR BLOCKED", "ETH was not blocked despite 0.88 correlation with open BTC!")
+        self.assertEqual(sol_row["status"], "BUY TRIGGER", "SOL was not executed despite low correlation with open BTC!")
+        self.assertEqual(len(new_signals), 1)
+        self.assertEqual(new_signals[0]["symbol"], "SOL/USDT")
+
+        if os.path.exists("logs/test_ledger_corr.csv"):
+            os.remove("logs/test_ledger_corr.csv")
+
+    def test_compute_asset_correlation_calculation(self):
+        """Verify rolling Pearson correlation calculation on generated CSV files."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            dates = pd.date_range("2026-01-01", periods=100, freq="1h")
+            # Returns series
+            np.random.seed(42)
+            rets = np.random.normal(0, 0.02, 100)
+            p1 = 100.0 * np.cumprod(1.0 + rets)
+            p2 = 50.0 * np.cumprod(1.0 + rets)       # Identical returns -> corr = 1.0
+            p3 = 100.0 * np.cumprod(1.0 - rets)      # Exact opposite returns -> corr = -1.0
+
+            df1 = pd.DataFrame({"close": p1}, index=dates)
+            df2 = pd.DataFrame({"close": p2}, index=dates)
+            df3 = pd.DataFrame({"close": p3}, index=dates)
+
+            df1.to_csv(os.path.join(tmp_dir, "binance_AAA_USDT_1h.csv"))
+            df2.to_csv(os.path.join(tmp_dir, "binance_BBB_USDT_1h.csv"))
+            df3.to_csv(os.path.join(tmp_dir, "binance_CCC_USDT_1h.csv"))
+
+            corr_pos = bot.compute_asset_correlation("AAA/USDT", "BBB/USDT", data_dir=tmp_dir)
+            corr_neg = bot.compute_asset_correlation("AAA/USDT", "CCC/USDT", data_dir=tmp_dir)
+
+            self.assertAlmostEqual(corr_pos, 1.0, places=2)
+            self.assertAlmostEqual(corr_neg, -1.0, places=2)
+
+
+class TestChandelierDynamicTrailingStop(unittest.TestCase):
+    """Stress tests for Chandelier Volatility Dynamic Trailing Stop for runners."""
+
+    def test_chandelier_trailing_stop_ratchets_and_exits(self):
+        """Verify that stop loss ratchets upward on new highs and triggers exit on reversal."""
+        state = {
+            "balance_usdt": 5000.0,
+            "open_positions": {
+                "SOL/USDT": {
+                    "entry_price": 100.0,
+                    "allocated_usdt": 500.0,
+                    "units": 5.0,
+                    "atr": 3.0,
+                    "stop_loss": 100.1,  # Breakeven locked after TP1
+                    "take_profit_1": 103.6,
+                    "take_profit_2": 107.2,
+                    "tp1_reached": True,
+                    "highest_price": 103.6
+                }
+            },
+            "trade_count": 0,
+            "win_count": 0,
+            "loss_count": 0
+        }
+        config = {
+            "trading_mode": "paper",
+            "trailing_stop": {
+                "enabled": True,
+                "type": "chandelier",
+                "atr_mult": 2.0  # Chandelier trail = peak - 2.0 * ATR
+            },
+            "ai_model": {"partial_tp_ratio": 0.50, "breakeven_lock_enabled": True},
+            "risk_management": {"fee_rate": 0.00075, "slippage_rate": 0.0005},
+            "paths": {"trade_ledger": "logs/test_ledger_trail.csv"}
+        }
+
+        mock_client = MagicMock()
+
+        # Step 1: Price rallies to $120 (Peak). Chandelier stop = 120 - 2.0 * 3.0 = 114.0
+        mock_client.get_ticker_price.return_value = 120.0
+        closed = bot.check_and_update_positions(mock_client, state, config)
+        self.assertEqual(len(closed), 0, "Trade closed prematurely during rally!")
+        pos = state["open_positions"]["SOL/USDT"]
+        self.assertEqual(pos["highest_price"], 120.0)
+        self.assertAlmostEqual(pos["stop_loss"], 114.0, places=2, msg="Stop loss did not ratchet to 114.0!")
+
+        # Step 2: Price dips to $116 (above SL 114.0). Stop loss must NOT decrease!
+        mock_client.get_ticker_price.return_value = 116.0
+        closed = bot.check_and_update_positions(mock_client, state, config)
+        self.assertEqual(len(closed), 0, "Trade closed while price remained above ratcheted SL!")
+        self.assertAlmostEqual(pos["stop_loss"], 114.0, places=2, msg="Stop loss decreased on price pullback!")
+
+        # Step 3: Price drops to $113.5 (breaches ratcheted SL 114.0). Chandelier exit fires!
+        mock_client.get_ticker_price.return_value = 113.5
+        closed = bot.check_and_update_positions(mock_client, state, config)
+        self.assertEqual(len(closed), 1, "Chandelier trailing exit did not trigger!")
+        exit_trade = closed[0]
+        self.assertEqual(exit_trade["outcome"], "WIN")
+        self.assertIn("CHANDELIER TRAILING EXIT", exit_trade["reason"])
+        self.assertGreater(exit_trade["net_pnl"], 0.0)
+        self.assertNotIn("SOL/USDT", state["open_positions"])
+
+        if os.path.exists("logs/test_ledger_trail.csv"):
+            os.remove("logs/test_ledger_trail.csv")
+
+
+class TestStackingEnsembleModel(unittest.TestCase):
+    """Stress tests for Multi-Model Stacking Ensemble (LightGBM + HistGradientBoosting)."""
+
+    def test_ensemble_train_and_predict(self):
+        """Ensemble must train both trees and output calibrated probabilities summing to 1."""
+        from features import StackingEnsembleModel
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        import lightgbm as lgb
+
+        hgb = HistGradientBoostingClassifier(max_iter=20, random_state=42)
+        lgbm = lgb.LGBMClassifier(n_estimators=20, random_state=42, verbose=-1)
+        ensemble = StackingEnsembleModel(hgb_model=hgb, lgb_model=lgbm)
+
+        # Synthetic dataset
+        np.random.seed(42)
+        X = np.random.randn(200, 10)
+        y = (X[:, 0] + X[:, 1] > 0).astype(int)
+
+        ensemble.fit(X, y)
+        probs = ensemble.predict_proba(X)
+        preds = ensemble.predict(X)
+        acc = ensemble.score(X, y)
+
+        self.assertEqual(probs.shape, (200, 2))
+        np.testing.assert_allclose(probs.sum(axis=1), np.ones(200), rtol=1e-5)
+        self.assertTrue(all(p in [0, 1] for p in preds))
+        self.assertGreater(acc, 0.70, "Stacking ensemble accuracy failed baseline on separable synthetic data!")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

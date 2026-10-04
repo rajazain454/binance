@@ -552,3 +552,32 @@ def label_triple_barrier(df, horizon_bars=12, tp_atr_mult=2.2, sl_atr_mult=1.4):
     label_series = pd.Series(labels, index=df.index, name="target")
     ret_series = pd.Series(returns, index=df.index, name="forward_ret")
     return label_series, ret_series
+
+
+class StackingEnsembleModel:
+    """
+    Multi-Model Stacking Ensemble combining HistGradientBoosting and LightGBM.
+    Leverages distinct tree growing paradigms (depth-wise vs leaf-wise)
+    to eliminate individual model blind spots and sharpen probability calibration.
+    """
+    def __init__(self, hgb_model, lgb_model, weights=(0.50, 0.50)):
+        self.hgb = hgb_model
+        self.lgb = lgb_model
+        self.weights = weights
+
+    def fit(self, X, y):
+        self.hgb.fit(X, y)
+        self.lgb.fit(X, y)
+        return self
+
+    def predict_proba(self, X):
+        p_hgb = self.hgb.predict_proba(X)[:, 1]
+        p_lgb = self.lgb.predict_proba(X)[:, 1]
+        p_ens = (p_hgb * self.weights[0]) + (p_lgb * self.weights[1])
+        return np.column_stack([1.0 - p_ens, p_ens])
+
+    def predict(self, X):
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
+
+    def score(self, X, y):
+        return float(np.mean(self.predict(X) == y))

@@ -203,11 +203,25 @@ def check_and_update_positions(client, state, config):
         units = pos["units"]
         allocated = pos["allocated_usdt"]
 
-        # Update live mark-to-market metrics
+        # Update live mark-to-market metrics & peak price
         pos["curr_price"] = curr_price
         gross_unrealized = units * (curr_price - entry_price)
         pos["unrealized_pnl"] = round(gross_unrealized, 2)
         pos["unrealized_pnl_pct"] = round(((curr_price / entry_price) - 1.0) * 100.0, 2)
+        highest_p = max(pos.get("highest_price", entry_price), curr_price)
+        pos["highest_price"] = highest_p
+
+        # Chandelier Dynamic Trailing Stop for runners (after TP1 is banked)
+        trail_cfg = config.get("trailing_stop", {})
+        use_chandelier = trail_cfg.get("enabled", False)
+        trail_mult = trail_cfg.get("atr_mult", 2.2)
+
+        if use_chandelier and pos.get("tp1_reached", False):
+            pos_atr = pos.get("atr", (tp1 - entry_price) / config.get("ai_model", {}).get("tp1_atr_mult", 1.2))
+            chandelier_stop = highest_p - (trail_mult * pos_atr)
+            be_level = entry_price * 1.001
+            pos["stop_loss"] = max(pos["stop_loss"], chandelier_stop, be_level)
+            sl = pos["stop_loss"]
 
         # Check maximum holding time decay
         is_stale = False
@@ -285,7 +299,7 @@ def check_and_update_positions(client, state, config):
             continue
 
         # Stage 2: Check Final TP2, Stop Loss, or Max Holding Time Exit
-        hit_tp2 = curr_price >= tp2
+        hit_tp2 = (curr_price >= tp2) and not use_chandelier
         hit_sl = curr_price <= sl
 
         if hit_tp2 or hit_sl or is_stale:
@@ -302,7 +316,7 @@ def check_and_update_positions(client, state, config):
             elif is_stale and not hit_sl:
                 exit_reason = f"MAX HOLDING TIME EXPIRED ({max_hold_hours}h)"
             elif pos.get("tp1_reached"):
-                exit_reason = "BREAKEVEN EXIT (RISK-FREE RUNNER)"
+                exit_reason = f"CHANDELIER TRAILING EXIT (SL Ratcheted to ${sl:.4f} | Peak: ${highest_p:.4f})"
             else:
                 exit_reason = "STOP LOSS HIT"
 
@@ -410,6 +424,28 @@ def send_daily_digest(state, config):
     return ok, res
 
 
+def compute_asset_correlation(sym1, sym2, data_dir="data", lookback=720):
+    """Computes rolling 30-day (720-hour) Pearson return correlation between two crypto assets."""
+    clean1 = sym1.replace("/", "_")
+    clean2 = sym2.replace("/", "_")
+    f1 = os.path.join(data_dir, f"binance_{clean1}_1h.csv")
+    f2 = os.path.join(data_dir, f"binance_{clean2}_1h.csv")
+    if not (os.path.exists(f1) and os.path.exists(f2)):
+        return 0.0
+    try:
+        df1 = pd.read_csv(f1, index_col=0, parse_dates=True)
+        df2 = pd.read_csv(f2, index_col=0, parse_dates=True)
+        c1 = df1["close"].iloc[-lookback:].pct_change().dropna()
+        c2 = df2["close"].iloc[-lookback:].pct_change().dropna()
+        common = c1.index.intersection(c2.index)
+        if len(common) < 30:
+            return 0.0
+        corr = float(c1.loc[common].corr(c2.loc[common]))
+        return corr if not np.isnan(corr) else 0.0
+    except Exception:
+        return 0.0
+
+
 def scan_and_execute(client, model_bundle, state, config):
     """Evaluates Binance market candles, runs model inference, and executes trades."""
     model = model_bundle["model"]
@@ -510,18 +546,48 @@ def scan_and_execute(client, model_bundle, state, config):
             print(f"Error analyzing {sym}: {e}")
 
     # =========================================================================
-    # ALPHA RANKING: Sort all market candidates by AI Conviction & Strategy Score
-    # Guarantees the bot ALWAYS selects the #1 best setup across all 10 coins!
+    # ALPHA RANKING & CROSS-ASSET CORRELATION FILTER
+    # 1. Sort all candidates by AI Conviction & Strategy Score (Descending)
+    # 2. Filter out correlated assets (> 0.75) to guarantee true portfolio diversification
     # =========================================================================
     trade_candidates.sort(key=lambda x: (x["prob_win"], x["strategy_score"]), reverse=True)
 
+    corr_cfg = config.get("correlation_filter", {})
+    use_corr_filter = corr_cfg.get("enabled", True)
+    max_corr = corr_cfg.get("max_correlation", 0.75)
+    data_dir = config.get("paths", {}).get("data_dir", "data")
+
+    selected_trades = []
+    portfolio_symbols = list(state["open_positions"].keys())
     available_slots = max(0, max_trades - len(state["open_positions"]))
-    for cand in trade_candidates[:available_slots]:
+
+    for cand in trade_candidates:
+        if len(selected_trades) >= available_slots:
+            break
+        sym = cand["symbol"]
+        is_corr = False
+        if use_corr_filter and portfolio_symbols:
+            for p_sym in portfolio_symbols:
+                r = compute_asset_correlation(sym, p_sym, data_dir=data_dir)
+                if r > max_corr:
+                    is_corr = True
+                    break
+        if is_corr:
+            for r in analysis_rows:
+                if r["symbol"] == sym:
+                    r["status"] = "CORR BLOCKED"
+            continue
+
+        selected_trades.append(cand)
+        portfolio_symbols.append(sym)
+
+    for cand in selected_trades:
         sym = cand["symbol"]
         c = cand["price"]
         sl = cand["sl"]
         tp1 = cand["tp1"]
         tp2 = cand["tp2"]
+        curr_atr = cand["atr"]
         prob_win = cand["prob_win"]
         strat_score = cand["strategy_score"]
         active_setups = cand["active_setups"]
@@ -571,6 +637,8 @@ def scan_and_execute(client, model_bundle, state, config):
                     "take_profit_1": tp1,
                     "take_profit_2": tp2,
                     "tp1_reached": False,
+                    "highest_price": c,
+                    "atr": curr_atr,
                     "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "confidence": round(prob_win * 100, 1),
                     "strategy_score": strat_score,
