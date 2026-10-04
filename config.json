@@ -45,9 +45,9 @@
     "atr_mult": 2.2
   },
   "risk_management": {
-    "capital_usdt": 10.0,
+    "capital_usdt": 30.0,
     "risk_per_trade_pct": 2.0,
-    "max_open_trades": 1,
+    "max_open_trades": 3,
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,
     "max_holding_hours": 48,
