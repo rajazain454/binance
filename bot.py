@@ -426,6 +426,7 @@ def scan_and_execute(client, model_bundle, state, config):
 
     analysis_rows = []
     new_signals = []
+    trade_candidates = []
 
     for sym in config["symbols"]:
         try:
@@ -490,78 +491,112 @@ def scan_and_execute(client, model_bundle, state, config):
             }
             analysis_rows.append(row)
 
-            # Execution condition: 1h conviction + 4h macro alignment + circuit breaker clear
-            if not cb_locked and is_high_conviction and confluence_passed and not is_open and len(state["open_positions"]) < max_trades:
-                # Risk Parity position sizing with Dynamic Alpha Kelly Scaling
-                available_balance = state["balance_usdt"]
-                dynamic_sizing = config.get("risk_management", {}).get("dynamic_alpha_sizing", True)
-                if dynamic_sizing:
-                    surplus = max(-0.10, min(0.20, prob_win - conf_thresh))
-                    alpha_mult = 1.0 + (surplus * 2.0)
-                    eff_risk_pct = risk_pct * alpha_mult
-                else:
-                    eff_risk_pct = risk_pct
-
-                risk_amount = available_balance * eff_risk_pct
-                risk_per_unit = c - sl
-
-                if risk_per_unit > 0:
-                    units = risk_amount / risk_per_unit
-                    slot_cap = (available_balance / (max_trades - len(state["open_positions"]))) * 0.95
-                    if dynamic_sizing:
-                        max_alloc = slot_cap * min(1.25, max(0.80, alpha_mult))
-                    else:
-                        max_alloc = slot_cap
-                    pos_cost = min(available_balance * 0.98, max_alloc, units * c)
-                    units = pos_cost / c
-
-                    if pos_cost >= 5.0:  # Minimum Binance order threshold ($5.00 USDT)
-                        # Real live execution if live mode enabled
-                        if config.get("trading_mode") == "live":
-                            try:
-                                order_res = client.place_spot_order(sym, "buy", units, price=c)
-                                print(f"  [LIVE SPOT ORDER] Successfully executed buy for {sym}: {order_res.get('id', 'FILLED')}")
-                            except Exception as e:
-                                print(f"  [LIVE ORDER REJECTED] Binance order failed for {sym}: {e}")
-                                continue
-
-                        state["balance_usdt"] -= pos_cost
-                        state["open_positions"][sym] = {
-                            "entry_price": c,
-                            "allocated_usdt": pos_cost,
-                            "units": units,
-                            "stop_loss": sl,
-                            "take_profit_1": tp1,
-                            "take_profit_2": tp2,
-                            "tp1_reached": False,
-                            "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                            "confidence": round(prob_win * 100, 1),
-                            "strategy_score": strat_score,
-                            "strategy_setups": active_setups or ["Quantitative Multi-Tool Confluence"],
-                            "indicators_summary": indicator_summary,
-                            "macro_4h": mtf_info.get("status", "BULLISH")
-                        }
-
-                        trade_signal = {
-                            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                            "symbol": sym,
-                            "action": "BUY (ENTER)",
-                            "price": round(c, 4),
-                            "size_usdt": round(pos_cost, 2),
-                            "stop_loss": round(sl, 4),
-                            "tp1": round(tp1, 4),
-                            "tp2": round(tp2, 4),
-                            "confidence_pct": round(prob_win * 100, 1),
-                            "strategy_score": strat_score,
-                            "strategy_setups": " + ".join(active_setups) if active_setups else "AI Quant Confluence",
-                            "indicators_summary": indicator_summary,
-                            "macro_4h": mtf_info.get("status", "BULLISH"),
-                            "mode": config.get("trading_mode", "paper").upper()
-                        }
-                        log_trade(trade_signal, config["paths"]["trade_ledger"])
-                        new_signals.append(trade_signal)
+            # Collect all qualified candidates that passed all filters
+            if not cb_locked and is_high_conviction and confluence_passed and not is_open:
+                trade_candidates.append({
+                    "symbol": sym,
+                    "price": c,
+                    "atr": curr_atr,
+                    "prob_win": prob_win,
+                    "strategy_score": strat_score,
+                    "active_setups": active_setups,
+                    "indicators_summary": indicator_summary,
+                    "mtf_status": mtf_info.get("status", "BULLISH"),
+                    "sl": sl,
+                    "tp1": tp1,
+                    "tp2": tp2
+                })
         except Exception as e:
             print(f"Error analyzing {sym}: {e}")
+
+    # =========================================================================
+    # ALPHA RANKING: Sort all market candidates by AI Conviction & Strategy Score
+    # Guarantees the bot ALWAYS selects the #1 best setup across all 10 coins!
+    # =========================================================================
+    trade_candidates.sort(key=lambda x: (x["prob_win"], x["strategy_score"]), reverse=True)
+
+    available_slots = max(0, max_trades - len(state["open_positions"]))
+    for cand in trade_candidates[:available_slots]:
+        sym = cand["symbol"]
+        c = cand["price"]
+        sl = cand["sl"]
+        tp1 = cand["tp1"]
+        tp2 = cand["tp2"]
+        prob_win = cand["prob_win"]
+        strat_score = cand["strategy_score"]
+        active_setups = cand["active_setups"]
+        indicator_summary = cand["indicators_summary"]
+        mtf_status = cand["mtf_status"]
+
+        # Risk Parity position sizing with Dynamic Alpha Kelly Scaling
+        available_balance = state["balance_usdt"]
+        dynamic_sizing = config.get("risk_management", {}).get("dynamic_alpha_sizing", True)
+        if dynamic_sizing:
+            surplus = max(-0.10, min(0.20, prob_win - conf_thresh))
+            alpha_mult = 1.0 + (surplus * 2.0)
+            eff_risk_pct = risk_pct * alpha_mult
+        else:
+            eff_risk_pct = risk_pct
+
+        risk_amount = available_balance * eff_risk_pct
+        risk_per_unit = c - sl
+
+        if risk_per_unit > 0:
+            units = risk_amount / risk_per_unit
+            remaining_slots = max(1, max_trades - len(state["open_positions"]))
+            slot_cap = (available_balance / remaining_slots) * 0.95
+            if dynamic_sizing:
+                max_alloc = slot_cap * min(1.25, max(0.80, alpha_mult))
+            else:
+                max_alloc = slot_cap
+            pos_cost = min(available_balance * 0.98, max_alloc, units * c)
+            units = pos_cost / c
+
+            if pos_cost >= 5.0:  # Minimum Binance order threshold ($5.00 USDT)
+                # Real live execution if live mode enabled
+                if config.get("trading_mode") == "live":
+                    try:
+                        order_res = client.place_spot_order(sym, "buy", units, price=c)
+                        print(f"  [LIVE SPOT ORDER] Successfully executed buy for {sym}: {order_res.get('id', 'FILLED')}")
+                    except Exception as e:
+                        print(f"  [LIVE ORDER REJECTED] Binance order failed for {sym}: {e}")
+                        continue
+
+                state["balance_usdt"] -= pos_cost
+                state["open_positions"][sym] = {
+                    "entry_price": c,
+                    "allocated_usdt": pos_cost,
+                    "units": units,
+                    "stop_loss": sl,
+                    "take_profit_1": tp1,
+                    "take_profit_2": tp2,
+                    "tp1_reached": False,
+                    "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "confidence": round(prob_win * 100, 1),
+                    "strategy_score": strat_score,
+                    "strategy_setups": active_setups or ["Quantitative Multi-Tool Confluence"],
+                    "indicators_summary": indicator_summary,
+                    "macro_4h": mtf_status
+                }
+
+                trade_signal = {
+                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "symbol": sym,
+                    "action": "BUY (ENTER)",
+                    "price": round(c, 4),
+                    "size_usdt": round(pos_cost, 2),
+                    "stop_loss": round(sl, 4),
+                    "tp1": round(tp1, 4),
+                    "tp2": round(tp2, 4),
+                    "confidence_pct": round(prob_win * 100, 1),
+                    "strategy_score": strat_score,
+                    "strategy_setups": " + ".join(active_setups) if active_setups else "AI Quant Confluence",
+                    "indicators_summary": indicator_summary,
+                    "macro_4h": mtf_status,
+                    "mode": config.get("trading_mode", "paper").upper()
+                }
+                log_trade(trade_signal, config["paths"]["trade_ledger"])
+                new_signals.append(trade_signal)
 
     return analysis_rows, new_signals, cb_status
 
