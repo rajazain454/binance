@@ -9,17 +9,17 @@
       "entry_price": 789.68,
       "allocated_usdt": 9.836154846267982,
       "units": 0.012455874336779433,
-      "stop_loss": 785.3639999999999,
+      "stop_loss": 790.4696799999998,
       "take_profit_1": 793.3794285714285,
       "take_profit_2": 797.0788571428571,
-      "tp1_reached": false,
+      "tp1_reached": true,
       "entry_time": "2026-10-04 09:50:02",
       "confidence": 61.9,
       "macro_4h": "BULLISH",
-      "curr_price": 791.92,
-      "unrealized_pnl": 0.03,
-      "unrealized_pnl_pct": 0.28,
-      "highest_price": 791.92
+      "curr_price": 793.61,
+      "unrealized_pnl": 0.05,
+      "unrealized_pnl_pct": 0.5,
+      "highest_price": 793.61
     },
     "BTC/USDT": {
       "entry_price": 85824.44,
@@ -29,7 +29,7 @@
       "take_profit_1": 86082.75628571429,
       "take_profit_2": 86341.07257142857,
       "tp1_reached": false,
-      "highest_price": 85824.44,
+      "highest_price": 86016.68,
       "atr": 215.26357142857054,
       "entry_time": "2026-10-04 21:01:04",
       "confidence": 59.5,
@@ -39,7 +39,10 @@
         "Institutional Volume Flow Accumulation"
       ],
       "indicators_summary": "RSI(14): 80.3 | StochRSI: 58/58 | BB %B: 1.14 | CMF: +0.10 | SuperTrend: BULLISH",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 86016.68,
+      "unrealized_pnl": 0.02,
+      "unrealized_pnl_pct": 0.22
     },
     "DOT/USDT": {
       "entry_price": 1.211,
@@ -58,13 +61,16 @@
         "Bollinger Squeeze Breakout"
       ],
       "indicators_summary": "RSI(14): 62.9 | StochRSI: 85/85 | BB %B: 0.92 | CMF: -0.09 | SuperTrend: BULLISH",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 1.198,
+      "unrealized_pnl": -0.1,
+      "unrealized_pnl_pct": -1.07
     }
   },
   "trade_count": 1,
   "win_count": 1,
   "loss_count": 0,
-  "last_update": "2026-10-04 21:01:05",
+  "last_update": "2026-10-04 22:01:05",
   "last_digest_date": "2026-10-04",
   "last_hourly_alert": "2026-10-04 20:16:21"
 }
