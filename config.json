@@ -57,7 +57,8 @@
   },
   "discord": {
     "enabled": true,
-    "webhook_url": ""
+    "webhook_url": "",
+    "hourly_radar_alert": true
   },
   "paths": {
     "data_dir": "data",

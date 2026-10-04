@@ -799,6 +799,55 @@ def execute_cycle(client, model_bundle, config):
             ]
             send_discord_alert(webhook, title, fields, color=color)
 
+        # 5. Hourly Radar & Position Status Alert (when no buys/sells occurred)
+        hourly_radar_enabled = discord_cfg.get("hourly_radar_alert", False)
+        if hourly_radar_enabled and not new_signals and not closed_signals:
+            now_utc = datetime.now(timezone.utc)
+            last_alert_str = state.get("last_hourly_alert")
+            should_send_hourly = True
+            if last_alert_str:
+                try:
+                    last_alert_dt = datetime.fromisoformat(last_alert_str.replace(" ", "T")).replace(tzinfo=timezone.utc)
+                    # 50 minutes throttle to send reliably once per hour even on 30m cron
+                    if (now_utc - last_alert_dt).total_seconds() < 3000:
+                        should_send_hourly = False
+                except Exception:
+                    pass
+
+            if should_send_hourly:
+                state["last_hourly_alert"] = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+                total_equity = state["balance_usdt"]
+                active_str = ""
+                if state.get("open_positions"):
+                    pos_lines = []
+                    for psym, p in state["open_positions"].items():
+                        c_p = p.get("curr_price", p["entry_price"])
+                        u_pnl = p.get("unrealized_pnl", 0.0)
+                        u_pct = p.get("unrealized_pnl_pct", 0.0)
+                        total_equity += (p["allocated_usdt"] + u_pnl)
+                        tp1_val = p.get("take_profit_1", p.get("take_profit", 0.0))
+                        sl_val = p.get("stop_loss", 0.0)
+                        pos_lines.append(f"• **{psym}**: Now `${c_p:,.2f}` | Entry `${p['entry_price']:,.2f}` | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%) | TP1: `${tp1_val:,.2f}` | SL: `${sl_val:,.2f}`")
+                    active_str = "\n".join(pos_lines)
+                else:
+                    active_str = "🛡️ 100% Cash Defense (Waiting for high-conviction breakout)"
+
+                # Top candidates summary
+                top_cands = sorted(analysis_rows, key=lambda x: (x["prob_win"], x["strategy_score"]), reverse=True)[:3]
+                cand_lines = []
+                for c in top_cands:
+                    cand_lines.append(f"• **{c['symbol']}**: AI Conviction `{c['prob_win']*100:.1f}%` | Status: `{c['status']}` | Setup: *{c['active_setups']}*")
+                cand_str = "\n".join(cand_lines) if cand_lines else "Scanning..."
+
+                fields = [
+                    {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
+                    {"name": "📊 Active Positions & Targets", "value": active_str, "inline": False},
+                    {"name": "🎯 Top Market Radar Scans", "value": cand_str, "inline": False},
+                    {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking candle close & volatility every cycle", "inline": False}
+                ]
+                title = "📡 Hourly Market Radar & Position Update"
+                send_discord_alert(webhook, title, fields, color=3447003)
+
     # Save state
     state["last_update"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     save_state(state, state_path)
