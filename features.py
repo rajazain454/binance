@@ -491,6 +491,51 @@ def evaluate_macro_confluence(df_1h, min_rsi=0.48):
     return is_bullish, details
 
 
+def evaluate_relative_strength(df_alt, df_btc, period=24):
+    """
+    Computes Relative Strength (RS) of an altcoin vs the Bitcoin benchmark.
+    - Ratio = Close(Alt) / Close(BTC)
+    - Trend: RS Ratio vs its 20-period exponential moving average
+    - 24h Alpha: Altcoin 24h return minus BTC 24h return
+    Returns: (is_alpha_leader: bool, rs_info: dict)
+    """
+    if df_alt is None or df_btc is None or len(df_alt) < period or len(df_btc) < period:
+        return False, {"alpha_24h": 0.0, "rs_ratio": 1.0, "is_leader": False}
+
+    try:
+        c_alt = df_alt["close"]
+        c_btc = df_btc["close"]
+        min_len = min(len(c_alt), len(c_btc))
+        s_alt = c_alt.iloc[-min_len:]
+        s_btc = c_btc.iloc[-min_len:]
+
+        # Ratio and its EMA trend
+        ratio = s_alt.values / (s_btc.values + 1e-9)
+        ratio_series = pd.Series(ratio)
+        ema_ratio = ratio_series.ewm(span=20, adjust=False).mean()
+
+        curr_ratio = float(ratio_series.iloc[-1])
+        curr_ema_ratio = float(ema_ratio.iloc[-1])
+
+        # 24-bar percentage changes
+        lookback = min(period, min_len - 1)
+        alt_ret_24 = float((s_alt.iloc[-1] / s_alt.iloc[-1 - lookback]) - 1.0)
+        btc_ret_24 = float((s_btc.iloc[-1] / s_btc.iloc[-1 - lookback]) - 1.0)
+        alpha_24 = alt_ret_24 - btc_ret_24
+
+        # Leader criteria: Ratio above EMA, +1.5% outperformance vs BTC, and positive absolute return
+        is_leader = (curr_ratio >= curr_ema_ratio) and (alpha_24 >= 0.015) and (alt_ret_24 > 0.0)
+
+        return is_leader, {
+            "alpha_24h": round(alpha_24 * 100, 2),
+            "alt_ret_24h": round(alt_ret_24 * 100, 2),
+            "btc_ret_24h": round(btc_ret_24 * 100, 2),
+            "is_leader": is_leader
+        }
+    except Exception:
+        return False, {"alpha_24h": 0.0, "rs_ratio": 1.0, "is_leader": False}
+
+
 def label_triple_barrier(df, horizon_bars=12, tp_atr_mult=2.2, sl_atr_mult=1.4):
     """
     Labels each bar using Triple Barrier Method:

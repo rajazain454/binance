@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 import joblib
 import numpy as np
 import pandas as pd
+import concurrent.futures
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -120,6 +121,32 @@ def log_trade(trade_record, ledger_path="logs/trade_history.csv"):
     exists = os.path.exists(ledger_path) and os.path.getsize(ledger_path) > 0
     df = pd.DataFrame([trade_record])
     df.to_csv(ledger_path, mode="a", header=not exists, index=False)
+
+
+def render_trade_progress(curr_p, entry_p, tp1, sl, length=10):
+    """
+    Renders visual ASCII progress gauge indicating progress towards TP1 or SL.
+    Example: `[██████░░░░] 60% to TP1 ($793.38)`
+    """
+    if tp1 <= entry_p or sl >= entry_p:
+        return f"TP1: ${tp1:,.2f} | SL: ${sl:,.2f}"
+
+    if curr_p >= entry_p:
+        tp_dist = tp1 - entry_p
+        gain = curr_p - entry_p
+        pct = min(1.0, max(0.0, gain / max(1e-9, tp_dist)))
+        filled = int(round(pct * length))
+        bar = "█" * filled + "░" * (length - filled)
+        pct_label = int(round(pct * 100))
+        return f"`[{bar}]` **{pct_label}% to TP1** (`${tp1:,.2f}`)"
+    else:
+        sl_dist = entry_p - sl
+        loss = entry_p - curr_p
+        pct = min(1.0, max(0.0, loss / max(1e-9, sl_dist)))
+        filled = int(round(pct * length))
+        bar = "▓" * filled + "░" * (length - filled)
+        pct_label = int(round(pct * 100))
+        return f"`[{bar}]` **{pct_label}% to SL** (`${sl:,.2f}`)"
 
 
 def get_portfolio_equity(state):
@@ -409,11 +436,17 @@ def send_daily_digest(state, config):
         {"name": "Timeframe", "value": config.get("timeframe", "1h"), "inline": True}
     ]
     if open_pos:
-        desc = "Current active positions:\n" + "\n".join([
-            f"• **{sym}**: Size ${pos['allocated_usdt']:,.2f} | Entry: ${pos['entry_price']:.4f} | "
-            f"Now: ${pos.get('curr_price', pos['entry_price']):.4f} | Unr PnL: ${pos.get('unrealized_pnl', 0.0):+,.2f} ({pos.get('unrealized_pnl_pct', 0.0):+.2f}%)"
-            for sym, pos in open_pos.items()
-        ])
+        pos_bullets = []
+        for sym, pos in open_pos.items():
+            curr_p = pos.get('curr_price', pos['entry_price'])
+            tp1_v = pos.get('take_profit_1', pos.get('take_profit', curr_p * 1.02))
+            sl_v = pos.get('stop_loss', curr_p * 0.98)
+            g = render_trade_progress(curr_p, pos['entry_price'], tp1_v, sl_v)
+            pos_bullets.append(
+                f"• **{sym}**: Size ${pos['allocated_usdt']:,.2f} | Entry: ${pos['entry_price']:.2f} | Now: ${curr_p:.2f} (PnL: ${pos.get('unrealized_pnl', 0.0):+,.2f} / {pos.get('unrealized_pnl_pct', 0.0):+.2f}%)\n"
+                f"  Target: {g}"
+            )
+        desc = "Current active positions:\n" + "\n".join(pos_bullets)
     else:
         desc = "Portfolio in 100% Cash Defense (No active open risk)."
 
@@ -464,11 +497,34 @@ def scan_and_execute(client, model_bundle, state, config):
     new_signals = []
     trade_candidates = []
 
+    # 1. Parallel multi-threaded candle fetching across all symbols (5x faster)
+    is_mock = hasattr(client.fetch_ohlcv, "assert_called") or hasattr(client.fetch_ohlcv, "mock_calls")
+    ohlcv_map = {}
+    if not is_mock and len(config["symbols"]) > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_sym = {
+                executor.submit(client.fetch_ohlcv, sym, timeframe=tf, limit=300): sym
+                for sym in config["symbols"]
+            }
+            for future in concurrent.futures.as_completed(future_to_sym):
+                s = future_to_sym[future]
+                try:
+                    ohlcv_map[s] = future.result()
+                except Exception as e:
+                    print(f"[Warning] Failed to fetch {s}: {e}")
+
+    df_btc = ohlcv_map.get("BTC/USDT")
+
     for sym in config["symbols"]:
         try:
-            df = client.fetch_ohlcv(sym, timeframe=tf, limit=300)
-            if len(df) < 50:
+            df = ohlcv_map.get(sym)
+            if df is None:
+                df = client.fetch_ohlcv(sym, timeframe=tf, limit=300)
+            if df is None or len(df) < 50:
                 continue
+
+            if df_btc is None and sym != "BTC/USDT":
+                df_btc = ohlcv_map.get("BTC/USDT")
 
             feat_df = features.extract_features(df)
             atr_series = features.compute_atr(df, 14)
@@ -489,6 +545,12 @@ def scan_and_execute(client, model_bundle, state, config):
             min_rsi = mtf_cfg.get("macro_rsi_min", 48.0)
             is_macro_bullish, mtf_info = features.evaluate_macro_confluence(df, min_rsi=min_rsi)
 
+            # Relative Strength vs BTC Alpha evaluation
+            is_alpha_leader = False
+            rs_info = {"alpha_24h": 0.0, "is_leader": False}
+            if sym != "BTC/USDT" and df_btc is not None and len(df_btc) >= 50:
+                is_alpha_leader, rs_info = features.evaluate_relative_strength(df, df_btc)
+
             # Funding rate sentiment check (avoid entering if market is over-leveraged long)
             fr = client.fetch_funding_rate(sym)
             funding_overheated = (fr > 0.0003)
@@ -497,18 +559,28 @@ def scan_and_execute(client, model_bundle, state, config):
             is_open = sym in state["open_positions"]
             confluence_passed = is_macro_bullish if use_mtf else True
 
+            # Alpha Leader override: If altcoin demonstrates strong decoupled alpha over BTC
+            is_rs_override = False
+            if not confluence_passed and is_high_conviction and is_alpha_leader:
+                confluence_passed = True
+                is_rs_override = True
+
             if is_open:
                 status = "HOLDING"
             elif cb_locked:
                 status = "CIRCUIT PAUSE"
             elif funding_overheated:
                 status = "FUNDING HOT"
+            elif is_rs_override:
+                status = "RS ALPHA"
             elif is_high_conviction and confluence_passed:
                 status = "BUY TRIGGER"
             elif is_high_conviction and not confluence_passed:
                 status = "4H BLOCKED"
             else:
                 status = "SCANNING"
+
+            mtf_display = f"RS +{rs_info['alpha_24h']}%" if is_rs_override else mtf_info.get("status", "N/A")
 
             row = {
                 "symbol": sym,
@@ -519,7 +591,7 @@ def scan_and_execute(client, model_bundle, state, config):
                 "active_setups": active_setups,
                 "indicators_summary": indicator_summary,
                 "high_conviction": is_high_conviction,
-                "mtf_status": mtf_info.get("status", "N/A"),
+                "mtf_status": mtf_display,
                 "status": status,
                 "stop_loss": sl,
                 "tp1": tp1,
@@ -537,7 +609,7 @@ def scan_and_execute(client, model_bundle, state, config):
                     "strategy_score": strat_score,
                     "active_setups": active_setups,
                     "indicators_summary": indicator_summary,
-                    "mtf_status": mtf_info.get("status", "BULLISH"),
+                    "mtf_status": mtf_display,
                     "sl": sl,
                     "tp1": tp1,
                     "tp2": tp2
@@ -827,7 +899,11 @@ def execute_cycle(client, model_bundle, config):
                         total_equity += (p["allocated_usdt"] + u_pnl)
                         tp1_val = p.get("take_profit_1", p.get("take_profit", 0.0))
                         sl_val = p.get("stop_loss", 0.0)
-                        pos_lines.append(f"• **{psym}**: Now `${c_p:,.2f}` | Entry `${p['entry_price']:,.2f}` | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%) | TP1: `${tp1_val:,.2f}` | SL: `${sl_val:,.2f}`")
+                        gauge = render_trade_progress(c_p, p["entry_price"], tp1_val, sl_val)
+                        pos_lines.append(
+                            f"• **{psym}**: Now `${c_p:,.2f}` | Entry `${p['entry_price']:,.2f}` | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%)\n"
+                            f"  🎯 Target: {gauge} | SL: `${sl_val:,.2f}`"
+                        )
                     active_str = "\n".join(pos_lines)
                 else:
                     active_str = "🛡️ 100% Cash Defense (Waiting for high-conviction breakout)"

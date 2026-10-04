@@ -15,7 +15,17 @@
     "ADA/USDT",
     "AVAX/USDT",
     "LINK/USDT",
-    "NEAR/USDT"
+    "NEAR/USDT",
+    "SUI/USDT",
+    "APT/USDT",
+    "INJ/USDT",
+    "TIA/USDT",
+    "RENDER/USDT",
+    "FET/USDT",
+    "SEI/USDT",
+    "ARB/USDT",
+    "OP/USDT",
+    "FTM/USDT"
   ],
   "timeframe": "1h",
   "ai_model": {
