@@ -33,6 +33,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Run Automated Test Suite
+        run: |
+          python -m unittest discover -s tests -p "*.py"
+
       - name: Execute Live Binance AI Market Scan
         env:
           BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}

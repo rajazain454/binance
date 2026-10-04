@@ -492,7 +492,7 @@ def scan_and_execute(client, model_bundle, state, config):
             analysis_rows.append(row)
 
             # Collect all qualified candidates that passed all filters
-            if not cb_locked and is_high_conviction and confluence_passed and not is_open:
+            if not cb_locked and is_high_conviction and confluence_passed and not funding_overheated and not is_open:
                 trade_candidates.append({
                     "symbol": sym,
                     "price": c,
