@@ -16,16 +16,16 @@
       "entry_time": "2026-10-04 09:50:02",
       "confidence": 61.9,
       "macro_4h": "BULLISH",
-      "curr_price": 788.96,
-      "unrealized_pnl": -0.01,
-      "unrealized_pnl_pct": -0.09,
-      "highest_price": 789.68
+      "curr_price": 789.98,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.04,
+      "highest_price": 789.98
     }
   },
   "trade_count": 1,
   "win_count": 1,
   "loss_count": 0,
-  "last_update": "2026-10-04 18:45:50",
+  "last_update": "2026-10-04 20:16:22",
   "last_digest_date": "2026-10-04",
-  "last_hourly_alert": "2026-10-04 18:45:50"
+  "last_hourly_alert": "2026-10-04 20:16:21"
 }
