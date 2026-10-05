@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 10.77668493836119,
+  "balance_usdt": 0.21553369876722428,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.849016775941813,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2679,
-      "unrealized_pnl": -0.02,
-      "unrealized_pnl_pct": -0.33
+      "curr_price": 0.2637,
+      "unrealized_pnl": -0.13,
+      "unrealized_pnl_pct": -1.9
     },
     "FET/USDT": {
       "entry_price": 0.2576,
@@ -47,15 +47,34 @@
       ],
       "indicators_summary": "RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2482,
-      "unrealized_pnl": -0.46,
-      "unrealized_pnl_pct": -3.65
+      "curr_price": 0.2493,
+      "unrealized_pnl": -0.41,
+      "unrealized_pnl_pct": -3.22
+    },
+    "SEI/USDT": {
+      "entry_price": 0.07199,
+      "allocated_usdt": 10.561151239593965,
+      "units": 146.7030315265171,
+      "stop_loss": 0.070687,
+      "take_profit_1": 0.07310685714285714,
+      "take_profit_2": 0.07422371428571428,
+      "tp1_reached": false,
+      "highest_price": 0.07199,
+      "atr": 0.0009307142857142867,
+      "entry_time": "2026-10-05 16:01:08",
+      "confidence": 59.9,
+      "strategy_score": 1.2,
+      "strategy_setups": [
+        "Quantitative Multi-Tool Confluence"
+      ],
+      "indicators_summary": "RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH",
+      "macro_4h": "BULLISH"
     }
   },
   "trade_count": 6,
   "win_count": 4,
   "loss_count": 2,
-  "last_update": "2026-10-05 15:01:10",
+  "last_update": "2026-10-05 16:01:09",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 12:01:10"
 }

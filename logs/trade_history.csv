@@ -24,3 +24,4 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-05 13:01:06,FET/USDT,BUY (ENTER),0.2576,12.61,0.2475,0.2662,0.2748,61.3,45.2,Bollinger Squeeze Breakout + StochRSI Oversold Bullish Cross + SuperTrend Dip Pullback,RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH,BULLISH,PAPER
 2026-10-05 14:01:06,INJ/USDT,BUY (ENTER),7.583,10.75,7.4661,7.6832,7.7834,56.7,71.6,Bollinger Squeeze Breakout + SuperTrend Dip Pullback,RSI(14): 44.8 | StochRSI: 16/40 | BB %B: 0.58 | CMF: -0.07 | SuperTrend: BULLISH,BULLISH,PAPER
 2026-10-05 15:01:06,INJ/USDT,FINAL CLOSE,7.583,7.464,10.75,-0.2,-1.82,STOP LOSS HIT,LOSS
+2026-10-05 16:01:08,SEI/USDT,BUY (ENTER),0.072,10.56,0.0707,0.0731,0.0742,59.9,1.2,AI Quant Confluence,RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH,BULLISH,PAPER
