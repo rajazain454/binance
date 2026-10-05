@@ -17,3 +17,4 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-05 04:01:34,BTC/USDT,FINAL CLOSE,85824.44,86115.04,5.23,0.0,0.09,CHANDELIER TRAILING EXIT (SL Ratcheted to $86158.4201 | Peak: $86632.0000),WIN
 2026-10-05 04:01:38,FET/USDT,BUY (ENTER),0.2591,12.19,0.2493,0.2675,0.2758,73.4,50.2,Bollinger Squeeze Breakout + Institutional Volume Flow Accumulation,RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH,BULLISH,PAPER
 2026-10-05 04:01:38,ADA/USDT,BUY (ENTER),0.2688,6.65,0.2615,0.275,0.2813,59.1,54.0,Bollinger Squeeze Breakout,RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH,BULLISH,PAPER
+2026-10-05 07:01:09,DOT/USDT,BREAKEVEN LOCK (SMALL ACCOUNT),1.211,1.229,9.55,0.0,0.0,TP1 reached! Size ($4.77) < $5 minNotional. Stop Loss locked to BREAKEVEN for 100% position!,WIN
