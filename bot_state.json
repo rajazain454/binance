@@ -66,13 +66,19 @@
         "Quantitative Multi-Tool Confluence"
       ],
       "indicators_summary": "RSI(14): 47.2 | StochRSI: 24/26 | BB %B: 0.52 | CMF: -0.05 | SuperTrend: BEARISH",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 0.1341,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0
     }
   },
   "trade_count": 7,
   "win_count": 4,
   "loss_count": 3,
-  "last_update": "2026-10-05 17:05:18",
+  "last_update": "2026-10-05 17:25:31",
   "last_digest_date": "2026-10-05",
-  "last_hourly_alert": "2026-10-05 17:01:06"
+  "last_hourly_alert": "2026-10-05 17:01:06",
+  "loss_cooldowns": {
+    "FET/USDT": "2026-10-06T05:05:00+00:00"
+  }
 }

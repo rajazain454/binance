@@ -12,7 +12,7 @@ import argparse
 import urllib.request
 import urllib.parse
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import joblib
 import numpy as np
 import pandas as pd
@@ -52,6 +52,13 @@ def load_state(state_path="bot_state.json", initial_capital=10000.0):
                             st["circuit_breaker_until"] = None
                         if "open_positions" not in st or not isinstance(st["open_positions"], dict):
                             st["open_positions"] = {}
+                        if "loss_cooldowns" not in st or not isinstance(st["loss_cooldowns"], dict):
+                            st["loss_cooldowns"] = {}
+                        else:
+                            now_iso = datetime.now(timezone.utc).isoformat()
+                            st["loss_cooldowns"] = {
+                                k: v for k, v in st["loss_cooldowns"].items() if v > now_iso
+                            }
                         return st
         except Exception as e:
             print(f"[Warning] Corrupted state file '{state_path}' ({e}). Rebuilding clean default state.")
@@ -62,6 +69,7 @@ def load_state(state_path="bot_state.json", initial_capital=10000.0):
         "daily_reset_time": datetime.now(timezone.utc).isoformat(),
         "circuit_breaker_until": None,
         "open_positions": {},
+        "loss_cooldowns": {},
         "trade_count": 0,
         "win_count": 0,
         "loss_count": 0,
@@ -261,16 +269,17 @@ def check_and_update_positions(client, state, config):
             except Exception:
                 pass
 
-        # Stage 1: Check TP1 Partial Exit (50%) & Lock Stop to Breakeven
+        # Stage 1: Check TP1 Partial Exit (50%) & Lock Stop to Breakeven / Profit Floor
         if not pos.get("tp1_reached", False) and curr_price >= tp1:
             sell_ratio = config.get("ai_model", {}).get("partial_tp_ratio", 0.50)
             sell_units = units * sell_ratio
             sell_allocated = allocated * sell_ratio
 
             # Small account guard: If 50% split is below Binance minNotional ($5.00),
-            # don't split order into rejected dust. Ratchet Stop Loss to Breakeven to make entire trade risk-free!
+            # don't split order into rejected dust. Ratchet Stop Loss to secure profit floor!
             if sell_allocated < 5.0:
-                pos["stop_loss"] = entry_price * 1.001
+                profit_floor = entry_price * 1.001
+                pos["stop_loss"] = max(pos["stop_loss"], profit_floor)
                 pos["tp1_reached"] = True
                 record = {
                     "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
@@ -305,7 +314,7 @@ def check_and_update_positions(client, state, config):
             pos["allocated_usdt"] -= sell_allocated
             pos["tp1_reached"] = True
 
-            # Breakeven lock: ratchet Stop Loss to Entry Price + buffer
+            # Breakeven / Profit lock: ratchet Stop Loss to secure profit
             if config.get("ai_model", {}).get("breakeven_lock_enabled", True):
                 pos["stop_loss"] = entry_price * 1.001
 
@@ -326,7 +335,8 @@ def check_and_update_positions(client, state, config):
             continue
 
         # Stage 2: Check Final TP2, Stop Loss, or Max Holding Time Exit
-        hit_tp2 = (curr_price >= tp2) and not use_chandelier
+        exit_at_tp2 = config.get("ai_model", {}).get("exit_at_tp2", False)
+        hit_tp2 = (curr_price >= tp2) and (exit_at_tp2 or not use_chandelier)
         hit_sl = curr_price <= sl
 
         if hit_tp2 or hit_sl or is_stale:
@@ -358,6 +368,10 @@ def check_and_update_positions(client, state, config):
                 state["win_count"] += 1
             else:
                 state["loss_count"] += 1
+                cooldown_hours = config.get("risk_management", {}).get("loss_cooldown_hours", 12)
+                if cooldown_hours > 0:
+                    cooldown_expiry = (now_utc + timedelta(hours=cooldown_hours)).isoformat()
+                    state.setdefault("loss_cooldowns", {})[sym] = cooldown_expiry
 
             record = {
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
@@ -384,10 +398,10 @@ def check_and_update_positions(client, state, config):
 def get_macro_regime_threshold(client, config):
     """
     Computes dynamic confidence threshold based on macro BTC 200 SMA regime.
-    - Macro Bull (BTC > 200 SMA): 55% threshold (captures trending breakouts)
-    - Macro Bear / Chop (BTC < 200 SMA): 65% threshold (ultra-defensive capital preservation)
+    - Macro Bull (BTC > 200 SMA): threshold adjusted slightly with strict 0.60 floor
+    - Macro Bear / Chop (BTC < 200 SMA): threshold raised for defense
     """
-    base_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.60)
+    base_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.62)
     try:
         btc_df = client.fetch_ohlcv("BTC/USDT", timeframe="1d", limit=220)
         if len(btc_df) >= 200:
@@ -395,12 +409,14 @@ def get_macro_regime_threshold(client, config):
             sma200 = float(c.rolling(200).mean().iloc[-1])
             curr_c = float(c.iloc[-1])
             if curr_c > sma200:
-                return round(base_thresh - 0.05, 2), "MACRO BULL (55% Thresh)"
+                bull_thresh = max(0.60, round(base_thresh - 0.02, 2))
+                return bull_thresh, f"MACRO BULL ({bull_thresh:.0%})"
             else:
-                return round(base_thresh + 0.05, 2), "MACRO DEFENSIVE (65% Thresh)"
+                bear_thresh = max(0.60, round(base_thresh + 0.05, 2))
+                return bear_thresh, f"MACRO DEFENSIVE ({bear_thresh:.0%})"
     except Exception:
         pass
-    return base_thresh, f"NORMAL ({base_thresh:.0%})"
+    return max(0.60, base_thresh), f"NORMAL ({max(0.60, base_thresh):.0%})"
 
 
 def send_daily_digest(state, config):
@@ -545,6 +561,23 @@ def scan_and_execute(client, model_bundle, state, config):
             min_rsi = mtf_cfg.get("macro_rsi_min", 48.0)
             is_macro_bullish, mtf_info = features.evaluate_macro_confluence(df, min_rsi=min_rsi)
 
+            # Technical Confluence & Trend Verification
+            st_series, _ = features.compute_supertrend(df, 10, 3.0)
+            is_supertrend_bull = bool(st_series.iloc[-1] > 0.5)
+            cmf_series = features.compute_cmf(df, 20)
+            cmf_val = float(cmf_series.iloc[-1])
+
+            ai_cfg = config.get("ai_model", {})
+            min_strat_score = ai_cfg.get("min_strategy_score", 30.0)
+            req_bull_st = ai_cfg.get("require_bull_supertrend", True)
+            req_active_setup = ai_cfg.get("require_active_setup", False)
+            min_cmf = ai_cfg.get("min_cmf", -0.05)
+
+            # Check loss cooldown
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cooldown_expiry = state.get("loss_cooldowns", {}).get(sym)
+            is_on_cooldown = bool(cooldown_expiry and cooldown_expiry > now_iso)
+
             # Relative Strength vs BTC Alpha evaluation
             is_alpha_leader = False
             rs_info = {"alpha_24h": 0.0, "is_leader": False}
@@ -565,15 +598,32 @@ def scan_and_execute(client, model_bundle, state, config):
                 confluence_passed = True
                 is_rs_override = True
 
+            # Technical confirmation gates
+            supertrend_ok = (not req_bull_st) or is_supertrend_bull
+            strat_score_ok = strat_score >= min_strat_score
+            setup_ok = (not req_active_setup) or (len(active_setups) > 0)
+            cmf_ok = cmf_val >= min_cmf
+            tech_confluence_passed = supertrend_ok and strat_score_ok and setup_ok and cmf_ok
+
             if is_open:
                 status = "HOLDING"
             elif cb_locked:
                 status = "CIRCUIT PAUSE"
+            elif is_on_cooldown:
+                status = "COOLDOWN"
             elif funding_overheated:
                 status = "FUNDING HOT"
-            elif is_rs_override:
+            elif not supertrend_ok:
+                status = "BEAR TREND"
+            elif not strat_score_ok:
+                status = "WEAK SETUP"
+            elif not setup_ok:
+                status = "NO SETUP"
+            elif not cmf_ok:
+                status = "OUTFLOW"
+            elif is_rs_override and tech_confluence_passed:
                 status = "RS ALPHA"
-            elif is_high_conviction and confluence_passed:
+            elif is_high_conviction and confluence_passed and tech_confluence_passed:
                 status = "BUY TRIGGER"
             elif is_high_conviction and not confluence_passed:
                 status = "4H BLOCKED"
@@ -600,7 +650,9 @@ def scan_and_execute(client, model_bundle, state, config):
             analysis_rows.append(row)
 
             # Collect all qualified candidates that passed all filters
-            if not cb_locked and is_high_conviction and confluence_passed and not funding_overheated and not is_open:
+            if (not cb_locked and not is_open and not is_on_cooldown
+                and not funding_overheated and is_high_conviction
+                and confluence_passed and tech_confluence_passed):
                 trade_candidates.append({
                     "symbol": sym,
                     "price": c,
@@ -666,8 +718,15 @@ def scan_and_execute(client, model_bundle, state, config):
         indicator_summary = cand["indicators_summary"]
         mtf_status = cand["mtf_status"]
 
-        # Risk Parity position sizing with Dynamic Alpha Kelly Scaling
+        # Risk Parity position sizing with Cash Reserve and Portfolio Cap Protection
         available_balance = state["balance_usdt"]
+        open_alloc = sum(p.get("allocated_usdt", 0.0) for p in state["open_positions"].values())
+        total_equity = available_balance + open_alloc
+
+        min_reserve_pct = config.get("risk_management", {}).get("min_cash_reserve_pct", 0.15)
+        min_reserve_usdt = total_equity * min_reserve_pct
+        spendable_cash = max(0.0, available_balance - min_reserve_usdt)
+
         dynamic_sizing = config.get("risk_management", {}).get("dynamic_alpha_sizing", True)
         if dynamic_sizing:
             surplus = max(-0.10, min(0.20, prob_win - conf_thresh))
@@ -679,15 +738,18 @@ def scan_and_execute(client, model_bundle, state, config):
         risk_amount = available_balance * eff_risk_pct
         risk_per_unit = c - sl
 
-        if risk_per_unit > 0:
+        if risk_per_unit > 0 and spendable_cash >= 5.0:
             units = risk_amount / risk_per_unit
             remaining_slots = max(1, max_trades - len(state["open_positions"]))
-            slot_cap = (available_balance / remaining_slots) * 0.95
+            slot_cap = (spendable_cash / remaining_slots) * 0.95
+            max_trade_pct = config.get("risk_management", {}).get("max_trade_allocation_pct", 0.32)
+            portfolio_cap = total_equity * max_trade_pct
             if dynamic_sizing:
-                max_alloc = slot_cap * min(1.25, max(0.80, alpha_mult))
+                max_alloc = min(slot_cap * min(1.25, max(0.80, alpha_mult)), portfolio_cap)
             else:
-                max_alloc = slot_cap
-            pos_cost = min(available_balance * 0.98, max_alloc, units * c)
+                max_alloc = min(slot_cap, portfolio_cap)
+
+            pos_cost = min(spendable_cash, max_alloc, units * c)
             units = pos_cost / c
 
             if pos_cost >= 5.0:  # Minimum Binance order threshold ($5.00 USDT)

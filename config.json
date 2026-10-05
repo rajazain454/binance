@@ -29,7 +29,11 @@
   ],
   "timeframe": "1h",
   "ai_model": {
-    "confidence_threshold": 0.60,
+    "confidence_threshold": 0.62,
+    "min_strategy_score": 20.0,
+    "require_bull_supertrend": true,
+    "require_active_setup": true,
+    "min_cmf": -0.02,
     "lookback_bars": 300,
     "horizon_bars": 12,
     "tp1_atr_mult": 1.2,
@@ -52,12 +56,15 @@
   "trailing_stop": {
     "enabled": true,
     "type": "chandelier",
-    "atr_mult": 2.2
+    "atr_mult": 1.2
   },
   "risk_management": {
     "capital_usdt": 30.0,
     "risk_per_trade_pct": 2.0,
     "max_open_trades": 3,
+    "min_cash_reserve_pct": 0.15,
+    "max_trade_allocation_pct": 0.32,
+    "loss_cooldown_hours": 12,
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,
     "max_holding_hours": 48,
