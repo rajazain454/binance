@@ -356,10 +356,15 @@ class TestExtremeStressFixes(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.fetch_historical_ohlcv.side_effect = [df_a, df_b]
 
-        X, y, fwd_ret, _ = train.prepare_dataset(mock_client, ["AAA/USDT", "BBB/USDT"], "1h", days=5, offline=False)
-
-        # Chronological sort check: Dates must be non-decreasing!
-        self.assertTrue((X.index[1:] >= X.index[:-1]).all(), "Features must be chronologically sorted across symbols!")
+        import tempfile
+        import shutil
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            X, y, fwd_ret, _ = train.prepare_dataset(mock_client, ["AAA/USDT", "BBB/USDT"], "1h", days=5, offline=False, data_dir=tmp_dir)
+            # Chronological sort check: Dates must be non-decreasing!
+            self.assertTrue((X.index[1:] >= X.index[:-1]).all(), "Features must be chronologically sorted across symbols!")
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # =========================================================================
     # TEST 8 (PHASE 3): BTC CASCADE HALT PROTECTS ALTCOIN PORTFOLIO

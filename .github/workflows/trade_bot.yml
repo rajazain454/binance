@@ -33,6 +33,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ensure Directory Structure
+        run: |
+          mkdir -p data logs models
+
       - name: Run Automated Test Suite
         run: |
           python -m unittest discover -s tests -p "*.py"
@@ -67,6 +71,15 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-            curl -H "Content-Type: application/json" -X POST -d '{"content": "⚠️ **QuantLab Cloud Alert**: The scheduled market scan encountered an error on GitHub Actions. Check repository Actions tab."}' "$DISCORD_WEBHOOK_URL" || true
-          fi
+          python -c "
+          import os, urllib.request, json
+          url = os.getenv('DISCORD_WEBHOOK_URL', '').strip().replace('\r', '').replace('\n', '')
+          if url.startswith('http'):
+              payload = json.dumps({'content': '⚠️ **QuantLab Cloud Alert**: The scheduled market scan encountered an error on GitHub Actions. Check repository Actions tab.'}).encode('utf-8')
+              req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json', 'User-Agent': 'QuantLab'})
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      print('Failure notification sent to Discord, status:', resp.status)
+              except Exception as e:
+                  print('Discord notify error:', e)
+          "

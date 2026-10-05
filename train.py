@@ -35,6 +35,8 @@ def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data",
     all_ret = []
     symbol_frames = {}
 
+    os.makedirs(data_dir, exist_ok=True)
+
     for sym in symbols:
         clean_sym = sym.replace("/", "_")
         cache_file = os.path.join(data_dir, f"binance_{clean_sym}_{tf}.csv")
