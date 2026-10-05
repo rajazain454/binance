@@ -1,7 +1,7 @@
 {
   "balance_usdt": 5.459585217812073,
   "peak_balance": 30.04,
-  "daily_peak_balance": 30.12277735786144,
+  "daily_peak_balance": 30.16277735786144,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
@@ -16,9 +16,9 @@
       "entry_time": "2026-10-04 09:50:02",
       "confidence": 61.9,
       "macro_4h": "BULLISH",
-      "curr_price": 795.21,
-      "unrealized_pnl": 0.07,
-      "unrealized_pnl_pct": 0.7,
+      "curr_price": 795.99,
+      "unrealized_pnl": 0.08,
+      "unrealized_pnl_pct": 0.8,
       "highest_price": 796.67
     },
     "BTC/USDT": {
@@ -40,9 +40,9 @@
       ],
       "indicators_summary": "RSI(14): 80.3 | StochRSI: 58/58 | BB %B: 1.14 | CMF: +0.10 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 86434.01,
-      "unrealized_pnl": 0.04,
-      "unrealized_pnl_pct": 0.71
+      "curr_price": 86566.01,
+      "unrealized_pnl": 0.05,
+      "unrealized_pnl_pct": 0.86
     },
     "DOT/USDT": {
       "entry_price": 1.211,
@@ -62,15 +62,15 @@
       ],
       "indicators_summary": "RSI(14): 62.9 | StochRSI: 85/85 | BB %B: 0.92 | CMF: -0.09 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 1.204,
-      "unrealized_pnl": -0.06,
-      "unrealized_pnl_pct": -0.58
+      "curr_price": 1.206,
+      "unrealized_pnl": -0.04,
+      "unrealized_pnl_pct": -0.41
     }
   },
   "trade_count": 1,
   "win_count": 1,
   "loss_count": 0,
-  "last_update": "2026-10-05 00:01:07",
+  "last_update": "2026-10-05 01:01:06",
   "last_digest_date": "2026-10-05",
-  "last_hourly_alert": "2026-10-05 00:01:07"
+  "last_hourly_alert": "2026-10-05 01:01:06"
 }
