@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 0.21553369876722428,
+  "balance_usdt": 1.0165582495782086,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.849016775941813,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
@@ -23,33 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2652,
-      "unrealized_pnl": -0.09,
-      "unrealized_pnl_pct": -1.34
-    },
-    "FET/USDT": {
-      "entry_price": 0.2576,
-      "allocated_usdt": 12.606437409270326,
-      "units": 48.938033421080455,
-      "stop_loss": 0.24755,
-      "take_profit_1": 0.2662142857142857,
-      "take_profit_2": 0.2748285714285714,
-      "tp1_reached": false,
-      "highest_price": 0.2576,
-      "atr": 0.007178571428571423,
-      "entry_time": "2026-10-05 13:01:06",
-      "confidence": 61.3,
-      "strategy_score": 45.2,
-      "strategy_setups": [
-        "Bollinger Squeeze Breakout",
-        "StochRSI Oversold Bullish Cross",
-        "SuperTrend Dip Pullback"
-      ],
-      "indicators_summary": "RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH",
-      "macro_4h": "BULLISH",
-      "curr_price": 0.2479,
-      "unrealized_pnl": -0.47,
-      "unrealized_pnl_pct": -3.77
+      "curr_price": 0.2641,
+      "unrealized_pnl": -0.12,
+      "unrealized_pnl_pct": -1.75
     },
     "SEI/USDT": {
       "entry_price": 0.07199,
@@ -69,15 +45,34 @@
       ],
       "indicators_summary": "RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.07183,
-      "unrealized_pnl": -0.02,
-      "unrealized_pnl_pct": -0.22
+      "curr_price": 0.07166,
+      "unrealized_pnl": -0.05,
+      "unrealized_pnl_pct": -0.46
+    },
+    "OP/USDT": {
+      "entry_price": 0.1341,
+      "allocated_usdt": 11.279622627383253,
+      "units": 84.11351698272374,
+      "stop_loss": 0.13097999999999999,
+      "take_profit_1": 0.1367742857142857,
+      "take_profit_2": 0.13944857142857142,
+      "tp1_reached": false,
+      "highest_price": 0.1341,
+      "atr": 0.002228571428571427,
+      "entry_time": "2026-10-05 17:05:18",
+      "confidence": 58.4,
+      "strategy_score": 2.4,
+      "strategy_setups": [
+        "Quantitative Multi-Tool Confluence"
+      ],
+      "indicators_summary": "RSI(14): 47.2 | StochRSI: 24/26 | BB %B: 0.52 | CMF: -0.05 | SuperTrend: BEARISH",
+      "macro_4h": "BULLISH"
     }
   },
-  "trade_count": 6,
+  "trade_count": 7,
   "win_count": 4,
-  "loss_count": 2,
-  "last_update": "2026-10-05 17:01:07",
+  "loss_count": 3,
+  "last_update": "2026-10-05 17:05:18",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 17:01:06"
 }
