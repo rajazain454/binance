@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2637,
-      "unrealized_pnl": -0.13,
-      "unrealized_pnl_pct": -1.9
+      "curr_price": 0.2652,
+      "unrealized_pnl": -0.09,
+      "unrealized_pnl_pct": -1.34
     },
     "FET/USDT": {
       "entry_price": 0.2576,
@@ -47,9 +47,9 @@
       ],
       "indicators_summary": "RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2493,
-      "unrealized_pnl": -0.41,
-      "unrealized_pnl_pct": -3.22
+      "curr_price": 0.2479,
+      "unrealized_pnl": -0.47,
+      "unrealized_pnl_pct": -3.77
     },
     "SEI/USDT": {
       "entry_price": 0.07199,
@@ -68,13 +68,16 @@
         "Quantitative Multi-Tool Confluence"
       ],
       "indicators_summary": "RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 0.07183,
+      "unrealized_pnl": -0.02,
+      "unrealized_pnl_pct": -0.22
     }
   },
   "trade_count": 6,
   "win_count": 4,
   "loss_count": 2,
-  "last_update": "2026-10-05 16:01:09",
+  "last_update": "2026-10-05 17:01:07",
   "last_digest_date": "2026-10-05",
-  "last_hourly_alert": "2026-10-05 12:01:10"
+  "last_hourly_alert": "2026-10-05 17:01:06"
 }
