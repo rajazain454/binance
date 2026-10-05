@@ -1,7 +1,7 @@
 {
   "balance_usdt": 1.687612629698795,
   "peak_balance": 30.04,
-  "daily_peak_balance": 30.353087402405855,
+  "daily_peak_balance": 30.403087402405855,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
@@ -13,7 +13,7 @@
       "take_profit_1": 1.2281428571428572,
       "take_profit_2": 1.2452857142857143,
       "tp1_reached": true,
-      "highest_price": 1.23,
+      "highest_price": 1.233,
       "atr": 0.014285714285714315,
       "entry_time": "2026-10-04 21:01:04",
       "confidence": 57.8,
@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 62.9 | StochRSI: 85/85 | BB %B: 0.92 | CMF: -0.09 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 1.23,
-      "unrealized_pnl": 0.15,
-      "unrealized_pnl_pct": 1.57
+      "curr_price": 1.233,
+      "unrealized_pnl": 0.17,
+      "unrealized_pnl_pct": 1.82
     },
     "FET/USDT": {
       "entry_price": 0.2591,
@@ -35,7 +35,7 @@
       "take_profit_1": 0.26745714285714284,
       "take_profit_2": 0.27581428571428573,
       "tp1_reached": false,
-      "highest_price": 0.2602,
+      "highest_price": 0.2604,
       "atr": 0.006964285714285721,
       "entry_time": "2026-10-05 04:01:38",
       "confidence": 73.4,
@@ -46,9 +46,9 @@
       ],
       "indicators_summary": "RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2602,
-      "unrealized_pnl": 0.05,
-      "unrealized_pnl_pct": 0.42
+      "curr_price": 0.2604,
+      "unrealized_pnl": 0.06,
+      "unrealized_pnl_pct": 0.5
     },
     "ADA/USDT": {
       "entry_price": 0.2688,
@@ -58,7 +58,7 @@
       "take_profit_1": 0.2750485714285714,
       "take_profit_2": 0.28129714285714286,
       "tp1_reached": false,
-      "highest_price": 0.2717,
+      "highest_price": 0.2725,
       "atr": 0.005207142857142856,
       "entry_time": "2026-10-05 04:01:38",
       "confidence": 59.1,
@@ -68,15 +68,15 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2717,
-      "unrealized_pnl": 0.07,
-      "unrealized_pnl_pct": 1.08
+      "curr_price": 0.2725,
+      "unrealized_pnl": 0.09,
+      "unrealized_pnl_pct": 1.38
     }
   },
   "trade_count": 3,
   "win_count": 3,
   "loss_count": 0,
-  "last_update": "2026-10-05 07:38:37",
+  "last_update": "2026-10-05 08:00:57",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 07:38:37"
 }
