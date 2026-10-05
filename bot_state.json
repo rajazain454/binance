@@ -1,32 +1,10 @@
 {
-  "balance_usdt": 7.989837319658023,
+  "balance_usdt": 17.514164740375666,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.849016775941813,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
-    "DOT/USDT": {
-      "entry_price": 1.211,
-      "allocated_usdt": 9.548197915506409,
-      "units": 7.884556495050709,
-      "stop_loss": 1.212211,
-      "take_profit_1": 1.2281428571428572,
-      "take_profit_2": 1.2452857142857143,
-      "tp1_reached": true,
-      "highest_price": 1.233,
-      "atr": 0.014285714285714315,
-      "entry_time": "2026-10-04 21:01:04",
-      "confidence": 57.8,
-      "strategy_score": 53.5,
-      "strategy_setups": [
-        "Bollinger Squeeze Breakout"
-      ],
-      "indicators_summary": "RSI(14): 62.9 | StochRSI: 85/85 | BB %B: 0.92 | CMF: -0.09 | SuperTrend: BULLISH",
-      "macro_4h": "BULLISH",
-      "curr_price": 1.218,
-      "unrealized_pnl": 0.06,
-      "unrealized_pnl_pct": 0.58
-    },
     "FET/USDT": {
       "entry_price": 0.2591,
       "allocated_usdt": 6.096295316423274,
@@ -46,9 +24,9 @@
       ],
       "indicators_summary": "RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2685,
-      "unrealized_pnl": 0.44,
-      "unrealized_pnl_pct": 3.63
+      "curr_price": 0.2648,
+      "unrealized_pnl": 0.13,
+      "unrealized_pnl_pct": 2.2
     },
     "ADA/USDT": {
       "entry_price": 0.2688,
@@ -68,15 +46,15 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2713,
-      "unrealized_pnl": 0.06,
-      "unrealized_pnl_pct": 0.93
+      "curr_price": 0.2718,
+      "unrealized_pnl": 0.07,
+      "unrealized_pnl_pct": 1.12
     }
   },
-  "trade_count": 3,
-  "win_count": 3,
+  "trade_count": 4,
+  "win_count": 4,
   "loss_count": 0,
-  "last_update": "2026-10-05 09:00:58",
+  "last_update": "2026-10-05 10:01:02",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 07:38:37"
 }

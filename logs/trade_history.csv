@@ -19,3 +19,4 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-05 04:01:38,ADA/USDT,BUY (ENTER),0.2688,6.65,0.2615,0.275,0.2813,59.1,54.0,Bollinger Squeeze Breakout,RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH,BULLISH,PAPER
 2026-10-05 07:01:09,DOT/USDT,BREAKEVEN LOCK (SMALL ACCOUNT),1.211,1.229,9.55,0.0,0.0,TP1 reached! Size ($4.77) < $5 minNotional. Stop Loss locked to BREAKEVEN for 100% position!,WIN
 2026-10-05 09:00:54,FET/USDT,PARTIAL TP1 (50% SOLD),0.2591,0.2685,6.1,0.21,3.38,TP1 Reached (50% profit booked). Stop Loss locked to BREAKEVEN!,WIN
+2026-10-05 10:00:59,DOT/USDT,FINAL CLOSE,1.211,1.211,9.55,-0.02,-0.25,CHANDELIER TRAILING EXIT (SL Ratcheted to $1.2122 | Peak: $1.2330),WIN
