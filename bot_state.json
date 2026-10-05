@@ -24,9 +24,9 @@
       ],
       "indicators_summary": "RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2648,
-      "unrealized_pnl": 0.13,
-      "unrealized_pnl_pct": 2.2
+      "curr_price": 0.26,
+      "unrealized_pnl": 0.02,
+      "unrealized_pnl_pct": 0.35
     },
     "ADA/USDT": {
       "entry_price": 0.2688,
@@ -36,7 +36,7 @@
       "take_profit_1": 0.2750485714285714,
       "take_profit_2": 0.28129714285714286,
       "tp1_reached": false,
-      "highest_price": 0.2725,
+      "highest_price": 0.2749,
       "atr": 0.005207142857142856,
       "entry_time": "2026-10-05 04:01:38",
       "confidence": 59.1,
@@ -46,15 +46,15 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2718,
-      "unrealized_pnl": 0.07,
-      "unrealized_pnl_pct": 1.12
+      "curr_price": 0.2749,
+      "unrealized_pnl": 0.15,
+      "unrealized_pnl_pct": 2.27
     }
   },
   "trade_count": 4,
   "win_count": 4,
   "loss_count": 0,
-  "last_update": "2026-10-05 10:01:02",
+  "last_update": "2026-10-05 11:01:01",
   "last_digest_date": "2026-10-05",
-  "last_hourly_alert": "2026-10-05 07:38:37"
+  "last_hourly_alert": "2026-10-05 11:01:01"
 }
