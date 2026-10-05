@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2641,
-      "unrealized_pnl": -0.12,
-      "unrealized_pnl_pct": -1.75
+      "curr_price": 0.2644,
+      "unrealized_pnl": -0.11,
+      "unrealized_pnl_pct": -1.64
     },
     "SEI/USDT": {
       "entry_price": 0.07199,
@@ -35,7 +35,7 @@
       "take_profit_1": 0.07310685714285714,
       "take_profit_2": 0.07422371428571428,
       "tp1_reached": false,
-      "highest_price": 0.07199,
+      "highest_price": 0.07203,
       "atr": 0.0009307142857142867,
       "entry_time": "2026-10-05 16:01:08",
       "confidence": 59.9,
@@ -45,9 +45,9 @@
       ],
       "indicators_summary": "RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.07166,
-      "unrealized_pnl": -0.05,
-      "unrealized_pnl_pct": -0.46
+      "curr_price": 0.07203,
+      "unrealized_pnl": 0.01,
+      "unrealized_pnl_pct": 0.06
     },
     "OP/USDT": {
       "entry_price": 0.1341,
@@ -57,7 +57,7 @@
       "take_profit_1": 0.1367742857142857,
       "take_profit_2": 0.13944857142857142,
       "tp1_reached": false,
-      "highest_price": 0.1341,
+      "highest_price": 0.1352,
       "atr": 0.002228571428571427,
       "entry_time": "2026-10-05 17:05:18",
       "confidence": 58.4,
@@ -67,15 +67,15 @@
       ],
       "indicators_summary": "RSI(14): 47.2 | StochRSI: 24/26 | BB %B: 0.52 | CMF: -0.05 | SuperTrend: BEARISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.1341,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.0
+      "curr_price": 0.1352,
+      "unrealized_pnl": 0.09,
+      "unrealized_pnl_pct": 0.82
     }
   },
   "trade_count": 7,
   "win_count": 4,
   "loss_count": 3,
-  "last_update": "2026-10-05 17:25:31",
+  "last_update": "2026-10-05 17:42:26",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 17:01:06",
   "loss_cooldowns": {
