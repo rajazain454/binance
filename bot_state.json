@@ -13,7 +13,7 @@
       "take_profit_1": 1.2281428571428572,
       "take_profit_2": 1.2452857142857143,
       "tp1_reached": false,
-      "highest_price": 1.218,
+      "highest_price": 1.226,
       "atr": 0.014285714285714315,
       "entry_time": "2026-10-04 21:01:04",
       "confidence": 57.8,
@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 62.9 | StochRSI: 85/85 | BB %B: 0.92 | CMF: -0.09 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 1.216,
-      "unrealized_pnl": 0.04,
-      "unrealized_pnl_pct": 0.41
+      "curr_price": 1.226,
+      "unrealized_pnl": 0.12,
+      "unrealized_pnl_pct": 1.24
     },
     "FET/USDT": {
       "entry_price": 0.2591,
@@ -46,9 +46,9 @@
       ],
       "indicators_summary": "RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2574,
-      "unrealized_pnl": -0.08,
-      "unrealized_pnl_pct": -0.66
+      "curr_price": 0.2542,
+      "unrealized_pnl": -0.23,
+      "unrealized_pnl_pct": -1.89
     },
     "ADA/USDT": {
       "entry_price": 0.2688,
@@ -58,7 +58,7 @@
       "take_profit_1": 0.2750485714285714,
       "take_profit_2": 0.28129714285714286,
       "tp1_reached": false,
-      "highest_price": 0.2688,
+      "highest_price": 0.2702,
       "atr": 0.005207142857142856,
       "entry_time": "2026-10-05 04:01:38",
       "confidence": 59.1,
@@ -68,15 +68,15 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2667,
-      "unrealized_pnl": -0.05,
-      "unrealized_pnl_pct": -0.78
+      "curr_price": 0.2702,
+      "unrealized_pnl": 0.03,
+      "unrealized_pnl_pct": 0.52
     }
   },
   "trade_count": 3,
   "win_count": 3,
   "loss_count": 0,
-  "last_update": "2026-10-05 05:01:05",
+  "last_update": "2026-10-05 06:00:55",
   "last_digest_date": "2026-10-05",
-  "last_hourly_alert": "2026-10-05 05:01:05"
+  "last_hourly_alert": "2026-10-05 06:00:54"
 }
