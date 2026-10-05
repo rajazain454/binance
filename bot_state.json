@@ -1,33 +1,10 @@
 {
-  "balance_usdt": 17.514164740375666,
+  "balance_usdt": 10.972311794527032,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.849016775941813,
   "daily_reset_time": "2026-10-05T00:01:01.276126+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
-    "FET/USDT": {
-      "entry_price": 0.2591,
-      "allocated_usdt": 6.096295316423274,
-      "units": 23.528735300745943,
-      "stop_loss": 0.25935909999999995,
-      "take_profit_1": 0.26745714285714284,
-      "take_profit_2": 0.27581428571428573,
-      "tp1_reached": true,
-      "highest_price": 0.2685,
-      "atr": 0.006964285714285721,
-      "entry_time": "2026-10-05 04:01:38",
-      "confidence": 73.4,
-      "strategy_score": 50.2,
-      "strategy_setups": [
-        "Bollinger Squeeze Breakout",
-        "Institutional Volume Flow Accumulation"
-      ],
-      "indicators_summary": "RSI(14): 68.3 | StochRSI: 2/12 | BB %B: 0.79 | CMF: +0.20 | SuperTrend: BULLISH",
-      "macro_4h": "BULLISH",
-      "curr_price": 0.263,
-      "unrealized_pnl": 0.09,
-      "unrealized_pnl_pct": 1.51
-    },
     "ADA/USDT": {
       "entry_price": 0.2688,
       "allocated_usdt": 6.654686224354106,
@@ -46,15 +23,36 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2721,
-      "unrealized_pnl": 0.08,
-      "unrealized_pnl_pct": 1.23
+      "curr_price": 0.2726,
+      "unrealized_pnl": 0.09,
+      "unrealized_pnl_pct": 1.41
+    },
+    "FET/USDT": {
+      "entry_price": 0.2576,
+      "allocated_usdt": 12.606437409270326,
+      "units": 48.938033421080455,
+      "stop_loss": 0.24755,
+      "take_profit_1": 0.2662142857142857,
+      "take_profit_2": 0.2748285714285714,
+      "tp1_reached": false,
+      "highest_price": 0.2576,
+      "atr": 0.007178571428571423,
+      "entry_time": "2026-10-05 13:01:06",
+      "confidence": 61.3,
+      "strategy_score": 45.2,
+      "strategy_setups": [
+        "Bollinger Squeeze Breakout",
+        "StochRSI Oversold Bullish Cross",
+        "SuperTrend Dip Pullback"
+      ],
+      "indicators_summary": "RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH",
+      "macro_4h": "BULLISH"
     }
   },
-  "trade_count": 4,
+  "trade_count": 5,
   "win_count": 4,
-  "loss_count": 0,
-  "last_update": "2026-10-05 12:01:11",
+  "loss_count": 1,
+  "last_update": "2026-10-05 13:01:06",
   "last_digest_date": "2026-10-05",
   "last_hourly_alert": "2026-10-05 12:01:10"
 }

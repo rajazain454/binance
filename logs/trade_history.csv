@@ -20,3 +20,5 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-05 07:01:09,DOT/USDT,BREAKEVEN LOCK (SMALL ACCOUNT),1.211,1.229,9.55,0.0,0.0,TP1 reached! Size ($4.77) < $5 minNotional. Stop Loss locked to BREAKEVEN for 100% position!,WIN
 2026-10-05 09:00:54,FET/USDT,PARTIAL TP1 (50% SOLD),0.2591,0.2685,6.1,0.21,3.38,TP1 Reached (50% profit booked). Stop Loss locked to BREAKEVEN!,WIN
 2026-10-05 10:00:59,DOT/USDT,FINAL CLOSE,1.211,1.211,9.55,-0.02,-0.25,CHANDELIER TRAILING EXIT (SL Ratcheted to $1.2122 | Peak: $1.2330),WIN
+2026-10-05 13:01:03,FET/USDT,FINAL CLOSE,0.2591,0.2584,6.1,-0.03,-0.52,CHANDELIER TRAILING EXIT (SL Ratcheted to $0.2594 | Peak: $0.2685),LOSS
+2026-10-05 13:01:06,FET/USDT,BUY (ENTER),0.2576,12.61,0.2475,0.2662,0.2748,61.3,45.2,Bollinger Squeeze Breakout + StochRSI Oversold Bullish Cross + SuperTrend Dip Pullback,RSI(14): 53.2 | StochRSI: 11/11 | BB %B: 0.52 | CMF: +0.08 | SuperTrend: BULLISH,BULLISH,PAPER
