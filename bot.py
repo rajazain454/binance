@@ -530,6 +530,40 @@ def scan_and_execute(client, model_bundle, state, config):
                     print(f"[Warning] Failed to fetch {s}: {e}")
 
     df_btc = ohlcv_map.get("BTC/USDT")
+    if df_btc is None and "BTC/USDT" in config["symbols"]:
+        try:
+            df_btc = client.fetch_ohlcv("BTC/USDT", timeframe=tf, limit=300)
+        except Exception:
+            pass
+
+    # Macro BTC Cascade Detection & Volatility Regime Scaling (Phase 3)
+    btc_cascade_halt = False
+    btc_halt_thresh = config.get("risk_management", {}).get("btc_cascade_halt_pct", -0.025)
+    if df_btc is not None and len(df_btc) >= 2:
+        try:
+            btc_prev_c = float(df_btc["close"].iloc[-2])
+            btc_curr_c = float(df_btc["close"].iloc[-1])
+            btc_1h_ret = (btc_curr_c / btc_prev_c) - 1.0
+            if btc_1h_ret <= btc_halt_thresh:
+                btc_cascade_halt = True
+        except Exception:
+            pass
+
+    # Dynamic ATR Volatility Scaling
+    sl_mult_eff = sl_mult
+    vol_scale_factor = 1.0
+    if config.get("risk_management", {}).get("volatility_scaling_enabled", True) and df_btc is not None and len(df_btc) >= 30:
+        try:
+            btc_atr = features.compute_atr(df_btc, 14)
+            mean_atr = btc_atr.rolling(30, min_periods=10).mean().iloc[-1]
+            curr_atr_val = btc_atr.iloc[-1]
+            atr_ratio = float(curr_atr_val / (mean_atr + 1e-9))
+            if atr_ratio > 1.35:
+                # Widen SL by 25% and reduce size by 20% to navigate elevated market volatility safely
+                sl_mult_eff = round(sl_mult * 1.25, 2)
+                vol_scale_factor = 0.80
+        except Exception:
+            pass
 
     for sym in config["symbols"]:
         try:
@@ -539,19 +573,21 @@ def scan_and_execute(client, model_bundle, state, config):
             if df is None or len(df) < 50:
                 continue
 
-            if df_btc is None and sym != "BTC/USDT":
-                df_btc = ohlcv_map.get("BTC/USDT")
+            # Funding rate sentiment check (avoid entering if market is over-leveraged long)
+            fr = client.fetch_funding_rate(sym)
+            funding_overheated = (fr > 0.0003)
 
             feat_df = features.extract_features(df)
             atr_series = features.compute_atr(df, 14)
-            active_setups, strat_score, indicator_summary = features.detect_active_strategies(df)
+            # Pass funding rate for CVD & Funding Squeeze detection (Phase 4)
+            active_setups, strat_score, indicator_summary = features.detect_active_strategies(df, funding_rate=fr)
 
             last_feats = feat_df.iloc[-1:][feat_names]
             prob_win = float(model.predict_proba(last_feats)[0, 1])
 
             c = float(df["close"].iloc[-1])
             curr_atr = float(atr_series.iloc[-1])
-            sl = c - (sl_mult * curr_atr)
+            sl = c - (sl_mult_eff * curr_atr)
             tp1 = c + (tp1_mult * curr_atr)
             tp2 = c + (tp2_mult * curr_atr)
 
@@ -568,7 +604,7 @@ def scan_and_execute(client, model_bundle, state, config):
             cmf_val = float(cmf_series.iloc[-1])
 
             ai_cfg = config.get("ai_model", {})
-            min_strat_score = ai_cfg.get("min_strategy_score", 30.0)
+            min_strat_score = ai_cfg.get("min_strategy_score", 20.0)
             req_bull_st = ai_cfg.get("require_bull_supertrend", True)
             req_active_setup = ai_cfg.get("require_active_setup", False)
             min_cmf = ai_cfg.get("min_cmf", -0.05)
@@ -583,10 +619,6 @@ def scan_and_execute(client, model_bundle, state, config):
             rs_info = {"alpha_24h": 0.0, "is_leader": False}
             if sym != "BTC/USDT" and df_btc is not None and len(df_btc) >= 50:
                 is_alpha_leader, rs_info = features.evaluate_relative_strength(df, df_btc)
-
-            # Funding rate sentiment check (avoid entering if market is over-leveraged long)
-            fr = client.fetch_funding_rate(sym)
-            funding_overheated = (fr > 0.0003)
 
             is_high_conviction = prob_win >= conf_thresh
             is_open = sym in state["open_positions"]
@@ -605,10 +637,14 @@ def scan_and_execute(client, model_bundle, state, config):
             cmf_ok = cmf_val >= min_cmf
             tech_confluence_passed = supertrend_ok and strat_score_ok and setup_ok and cmf_ok
 
+            is_btc_halted = btc_cascade_halt and (sym != "BTC/USDT")
+
             if is_open:
                 status = "HOLDING"
             elif cb_locked:
                 status = "CIRCUIT PAUSE"
+            elif is_btc_halted:
+                status = "BTC CASCADE"
             elif is_on_cooldown:
                 status = "COOLDOWN"
             elif funding_overheated:
@@ -650,7 +686,7 @@ def scan_and_execute(client, model_bundle, state, config):
             analysis_rows.append(row)
 
             # Collect all qualified candidates that passed all filters
-            if (not cb_locked and not is_open and not is_on_cooldown
+            if (not cb_locked and not is_open and not is_on_cooldown and not is_btc_halted
                 and not funding_overheated and is_high_conviction
                 and confluence_passed and tech_confluence_passed):
                 trade_candidates.append({
@@ -735,7 +771,7 @@ def scan_and_execute(client, model_bundle, state, config):
         else:
             eff_risk_pct = risk_pct
 
-        risk_amount = available_balance * eff_risk_pct
+        risk_amount = available_balance * eff_risk_pct * vol_scale_factor
         risk_per_unit = c - sl
 
         if risk_per_unit > 0 and spendable_cash >= 5.0:
@@ -761,6 +797,14 @@ def scan_and_execute(client, model_bundle, state, config):
                     except Exception as e:
                         print(f"  [LIVE ORDER REJECTED] Binance order failed for {sym}: {e}")
                         continue
+
+                    # Native exchange-side OCO order placement (Phase 1)
+                    if config.get("execution", {}).get("use_native_oco", False):
+                        try:
+                            oco_res = client.place_oco_order(sym, "sell", units, tp_price=tp2, sl_price=sl)
+                            print(f"  [LIVE OCO ACTIVE] Native Binance OCO order registered for {sym}")
+                        except Exception as e:
+                            print(f"  [LIVE OCO NOTICE] Native OCO skipped for {sym} (software trailing active): {e}")
 
                 state["balance_usdt"] -= pos_cost
                 state["open_positions"][sym] = {

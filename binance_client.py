@@ -177,3 +177,38 @@ class BinanceClient:
             return self.exchange.create_order(symbol, "limit", side, clean_amount, clean_price)
         else:
             return self.exchange.create_order(symbol, "market", side, clean_amount)
+
+    @retry_on_network_error(max_retries=2, initial_delay=1.0)
+    def place_oco_order(self, symbol, side, amount, tp_price, sl_price, sl_limit_price=None):
+        """
+        Places a native exchange-side OCO (One-Cancels-the-Other) order on Binance Spot.
+        Ensures Take-Profit and Stop-Loss orders sit on Binance's matching engine 24/7 with 0ms latency.
+        """
+        if not self.has_credentials:
+            raise ValueError("Binance API keys not set for live execution.")
+
+        self.load_markets_once()
+        raw_sym = symbol.replace("/", "")
+        clean_amount, clean_tp = self.sanitize_order_amount(symbol, amount, tp_price)
+        _, clean_sl = self.sanitize_order_amount(symbol, amount, sl_price)
+        clean_sl_limit = clean_sl * 0.998 if sl_limit_price is None else sl_limit_price
+        _, clean_sl_limit = self.sanitize_order_amount(symbol, amount, clean_sl_limit)
+
+        params = {
+            "symbol": raw_sym,
+            "side": side.upper(),
+            "quantity": clean_amount,
+            "price": self.exchange.price_to_precision(symbol, clean_tp),
+            "stopPrice": self.exchange.price_to_precision(symbol, clean_sl),
+            "stopLimitPrice": self.exchange.price_to_precision(symbol, clean_sl_limit),
+            "stopLimitTimeInForce": "GTC"
+        }
+        return self.exchange.privatePostOrderOco(params)
+
+    @retry_on_network_error(max_retries=2, initial_delay=1.0)
+    def cancel_order(self, symbol, order_id):
+        """Cancels an open order or OCO order on Binance."""
+        if not self.has_credentials:
+            return None
+        return self.exchange.cancel_order(order_id, symbol)
+

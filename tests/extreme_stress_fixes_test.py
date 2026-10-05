@@ -62,7 +62,8 @@ class TestExtremeStressFixes(unittest.TestCase):
         self.config["paths"]["state_file"] = "logs/test_stress_fixes_state.json"
 
     def tearDown(self):
-        for f in ["logs/test_stress_fixes_ledger.csv", "logs/test_stress_fixes_state.json"]:
+        for f in ["logs/test_stress_fixes_ledger.csv", "logs/test_stress_fixes_state.json",
+                  "data/binance_AAA_USDT_1h.csv", "data/binance_BBB_USDT_1h.csv"]:
             if os.path.exists(f):
                 try:
                     os.remove(f)
@@ -320,6 +321,120 @@ class TestExtremeStressFixes(unittest.TestCase):
         self.assertTrue(cb_locked, "Circuit breaker must trip on 50% flash crash!")
         self.assertIn("TRIGGERED", status)
 
+    # =========================================================================
+    # TEST 6 (PHASE 1): NATIVE OCO ORDER GENERATION & PARAMETERS
+    # =========================================================================
+    def test_native_oco_order_interface(self):
+        client = BinanceClient(self.config)
+        client.has_credentials = True
+        client.exchange = MagicMock()
+        client.exchange.markets = {"SOL/USDT": {"limits": {"cost": {"min": 5.0}}}}
+        client.exchange.market.return_value = {"limits": {"cost": {"min": 5.0}}}
+        client.exchange.amount_to_precision.return_value = "0.5"
+        client.exchange.price_to_precision.side_effect = lambda sym, val: f"{val:.2f}"
+        client.exchange.privatePostOrderOco.return_value = {"orderListId": 8888, "listOrderStatus": "EXEC_STARTED"}
+
+        res = client.place_oco_order("SOL/USDT", "sell", 0.5, tp_price=110.0, sl_price=95.0)
+        self.assertEqual(res["orderListId"], 8888)
+        client.exchange.privatePostOrderOco.assert_called_once()
+        call_params = client.exchange.privatePostOrderOco.call_args[0][0]
+        self.assertEqual(call_params["symbol"], "SOLUSDT")
+        self.assertEqual(call_params["side"], "SELL")
+        self.assertEqual(call_params["price"], "110.00")
+        self.assertEqual(call_params["stopPrice"], "95.00")
+
+    # =========================================================================
+    # TEST 7 (PHASE 2): CROSS-SECTIONAL PURGED DATE SPLITTING RIGOR
+    # =========================================================================
+    def test_cross_sectional_purged_date_splitting(self):
+        import train
+        dates = pd.date_range("2026-01-01", periods=250, freq="1h", tz="UTC")
+        df_a = pd.DataFrame({"open": 10, "high": 11, "low": 9, "close": 10, "volume": 100}, index=dates)
+        df_b = pd.DataFrame({"open": 20, "high": 22, "low": 18, "close": 20, "volume": 200}, index=dates)
+
+        # Mock client returning 2 symbols
+        mock_client = MagicMock()
+        mock_client.fetch_historical_ohlcv.side_effect = [df_a, df_b]
+
+        X, y, fwd_ret, _ = train.prepare_dataset(mock_client, ["AAA/USDT", "BBB/USDT"], "1h", days=5, offline=False)
+
+        # Chronological sort check: Dates must be non-decreasing!
+        self.assertTrue((X.index[1:] >= X.index[:-1]).all(), "Features must be chronologically sorted across symbols!")
+
+    # =========================================================================
+    # TEST 8 (PHASE 3): BTC CASCADE HALT PROTECTS ALTCOIN PORTFOLIO
+    # =========================================================================
+    def test_btc_cascade_halts_altcoin_entries(self):
+        mock_client = MagicMock()
+
+        # BTC drops 4.0% in 1 hour (severe cascade)
+        dates = pd.date_range("2026-01-01", periods=100, freq="1h", tz="UTC")
+        btc_c = np.full(100, 80000.0)
+        btc_c[-1] = 76800.0  # -4.0% crash
+        df_btc_crash = pd.DataFrame({
+            "open": btc_c, "high": btc_c * 1.002, "low": btc_c * 0.998, "close": btc_c, "volume": 10000.0
+        }, index=dates)
+
+        # Altcoin has a bullish pattern
+        mock_client.fetch_ohlcv.side_effect = lambda sym, *args, **kwargs: df_btc_crash if sym == "BTC/USDT" else self.bull_df
+        mock_client.fetch_funding_rate.return_value = 0.0001
+
+        class BullishModel:
+            def predict_proba(self, X):
+                return np.array([[0.10, 0.90]])
+
+        feats = features.extract_features(self.bull_df)
+        mock_bundle = {"model": BullishModel(), "feature_names": list(feats.columns)}
+
+        state = {
+            "balance_usdt": 30.0,
+            "peak_balance": 30.0,
+            "daily_peak_balance": 30.0,
+            "daily_reset_time": datetime.now(timezone.utc).isoformat(),
+            "circuit_breaker_until": None,
+            "open_positions": {},
+            "loss_cooldowns": {},
+            "trade_count": 0,
+            "win_count": 0,
+            "loss_count": 0
+        }
+
+        self.config["symbols"] = ["BTC/USDT", "SOL/USDT"]
+        self.config["risk_management"]["btc_cascade_halt_pct"] = -0.025
+
+        rows, new_signals, _ = bot.scan_and_execute(mock_client, mock_bundle, state, self.config)
+
+        # SOL/USDT MUST be halted due to BTC cascade!
+        sol_row = [r for r in rows if r["symbol"] == "SOL/USDT"][0]
+        self.assertEqual(sol_row["status"], "BTC CASCADE", "Altcoin must be marked BTC CASCADE during Bitcoin market dump!")
+        # Zero altcoin signals allowed
+        alt_signals = [s for s in new_signals if s["symbol"] != "BTC/USDT"]
+        self.assertEqual(len(alt_signals), 0, "No altcoin buy orders permitted during BTC cascade!")
+
+    # =========================================================================
+    # TEST 9 (PHASE 4): CVD & FUNDING SQUEEZE STRATEGY DETECTION
+    # =========================================================================
+    def test_cvd_and_funding_squeeze_strategy_detection(self):
+        # Create data with heavy buying near lows (absorption)
+        dates = pd.date_range("2026-01-01", periods=50, freq="1h", tz="UTC")
+        close = 100.0 * np.ones(50)
+        close[-5:] = 101.0
+        df = pd.DataFrame({
+            "open": close * 0.999,
+            "high": close * 1.010,
+            "low": close * 0.990,
+            "close": close,
+            "volume": np.random.uniform(5000, 10000, 50)
+        }, index=dates)
+
+        # Negative funding rate (-0.02% / 8h) indicating crowded shorts
+        setups, score, summary = features.detect_active_strategies(df, funding_rate=-0.0002)
+        self.assertIn("Funding Squeeze / Institutional Absorption", setups,
+                      "Must detect Funding Squeeze setup when funding rate is negative!")
+        self.assertIn("FR:", summary)
+        self.assertIn("CVD:", summary)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

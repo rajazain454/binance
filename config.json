@@ -65,12 +65,17 @@
     "min_cash_reserve_pct": 0.15,
     "max_trade_allocation_pct": 0.32,
     "loss_cooldown_hours": 12,
+    "btc_cascade_halt_pct": -0.025,
+    "volatility_scaling_enabled": true,
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,
     "max_holding_hours": 48,
     "dynamic_alpha_sizing": true,
     "fee_rate": 0.00075,
     "slippage_rate": 0.0005
+  },
+  "execution": {
+    "use_native_oco": false
   },
   "discord": {
     "enabled": true,

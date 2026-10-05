@@ -224,9 +224,10 @@ def evaluate_strategy_setups(df):
     return res
 
 
-def detect_active_strategies(df):
+def detect_active_strategies(df, funding_rate=0.0):
     """
     Returns live strategy identification for trading decision & alert generation.
+    Supports CVD (Cumulative Volume Delta) and Funding Squeeze detection.
     Returns: (active_setups: list[str], strategy_score: float, summary_text: str)
     """
     if len(df) < 30:
@@ -251,6 +252,16 @@ def detect_active_strategies(df):
     cmf = float(compute_cmf(df, 20).iloc[-1])
     obv_s = float(compute_obv_trend(df, 10).iloc[-1])
 
+    # Cumulative Volume Delta (CVD) slope & institutional buying pressure
+    try:
+        h, l, v = df["high"], df["low"], df["volume"]
+        clv = (2 * ((c - l) / (h - l + 1e-9)) - 1.0) * v
+        cvd = clv.rolling(24, min_periods=5).sum()
+        v_mean24 = v.rolling(24, min_periods=5).mean().iloc[-1] + 1e-9
+        cvd_slope = float((cvd.iloc[-1] - cvd.iloc[-6]) / (v_mean24 * 6))
+    except Exception:
+        cvd_slope = 0.0
+
     strat_df = evaluate_strategy_setups(df)
     strat_score = float(strat_df["composite_strategy_score"].iloc[-1]) * 100.0
 
@@ -263,12 +274,18 @@ def detect_active_strategies(df):
         setups.append("SuperTrend Dip Pullback")
     if cmf > 0.06 and obv_s > 0.10:
         setups.append("Institutional Volume Flow Accumulation")
+    if (funding_rate < -0.0001) or (funding_rate < 0.0 and cvd_slope > 0.15 and pct_b_val < 0.45):
+        setups.append("Funding Squeeze / Institutional Absorption")
+        strat_score = min(100.0, strat_score + 15.0)
 
     summary_text = (
         f"RSI(14): {rsi14:.1f} | StochRSI: {k_val*100:.0f}/{d_val*100:.0f} | "
         f"BB %B: {pct_b_val:.2f} | CMF: {cmf:+.2f} | "
         f"SuperTrend: {'BULLISH' if is_supertrend_bull else 'BEARISH'}"
     )
+    if funding_rate != 0.0:
+        summary_text += f" | FR: {funding_rate*100:+.3f}%"
+    summary_text += f" | CVD: {'BULL' if cvd_slope > 0 else 'BEAR'}"
 
     return setups, round(strat_score, 1), summary_text
 

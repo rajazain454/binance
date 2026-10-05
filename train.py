@@ -91,6 +91,13 @@ def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data",
     y = pd.concat(all_y, axis=0)
     fwd_returns = pd.concat(all_ret, axis=0)
 
+    # Cross-sectional chronological sort across ALL symbols simultaneously
+    if isinstance(X.index, pd.DatetimeIndex):
+        sort_order = np.argsort(X.index.values)
+        X = X.iloc[sort_order]
+        y = y.iloc[sort_order]
+        fwd_returns = fwd_returns.iloc[sort_order]
+
     return X, y, fwd_returns, symbol_frames
 
 
@@ -100,12 +107,26 @@ def train_model(X, y, fwd_returns, config):
     ai_cfg = config.get("ai_model", {})
     conf_thresh = ai_cfg.get("confidence_threshold", 0.60)
     cost_rate = config["risk_management"]["fee_rate"] + config["risk_management"]["slippage_rate"]
+    horizon = ai_cfg.get("horizon_bars", 12)
 
-    # Chronological Train-Test Split (80% Train, 20% Out-of-Sample Test)
-    split_idx = int(len(X) * 0.80)
-    X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
-    y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
-    ret_test = fwd_returns.iloc[split_idx:]
+    # Cross-Sectional Chronological Train-Test Split with Purge Barrier (De Prado methodology)
+    if isinstance(X.index, pd.DatetimeIndex) and len(X.index.unique()) > 10:
+        unique_dates = X.index.unique().sort_values()
+        split_date_idx = int(len(unique_dates) * 0.80)
+        split_date = unique_dates[split_date_idx]
+        purge_barrier = split_date - pd.Timedelta(hours=horizon)
+
+        train_mask = (X.index < purge_barrier)
+        test_mask = (X.index >= split_date)
+
+        X_train, X_test = X.loc[train_mask], X.loc[test_mask]
+        y_train, y_test = y.loc[train_mask], y.loc[test_mask]
+        ret_test = fwd_returns.loc[test_mask]
+    else:
+        split_idx = int(len(X) * 0.80)
+        X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
+        y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
+        ret_test = fwd_returns.iloc[split_idx:]
 
     print("\n" + "=" * 75)
     print("  TRAINING BINANCE AI MODEL (HistGradientBoostingClassifier with Quant Setups)")
