@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 17.937775453848673,
+  "balance_usdt": 23.293904968669708,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.13676087496077,
   "daily_reset_time": "2026-10-06T00:01:07.802730+00:00",
@@ -23,40 +23,16 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2701,
-      "unrealized_pnl": 0.03,
-      "unrealized_pnl_pct": 0.48
-    },
-    "SEI/USDT": {
-      "entry_price": 0.07199,
-      "allocated_usdt": 5.280575619796982,
-      "units": 73.35151576325855,
-      "stop_loss": 0.07342314285714285,
-      "take_profit_1": 0.07310685714285714,
-      "take_profit_2": 0.07422371428571428,
-      "tp1_reached": true,
-      "highest_price": 0.07454,
-      "atr": 0.0009307142857142867,
-      "entry_time": "2026-10-05 16:01:08",
-      "confidence": 59.9,
-      "strategy_score": 1.2,
-      "strategy_setups": [
-        "Quantitative Multi-Tool Confluence"
-      ],
-      "indicators_summary": "RSI(14): 37.8 | StochRSI: 12/15 | BB %B: -0.01 | CMF: -0.16 | SuperTrend: BEARISH",
-      "macro_4h": "BULLISH",
-      "curr_price": 0.07361,
-      "unrealized_pnl": 0.12,
-      "unrealized_pnl_pct": 2.25
+      "curr_price": 0.2679,
+      "unrealized_pnl": -0.02,
+      "unrealized_pnl_pct": -0.33
     }
   },
-  "trade_count": 8,
-  "win_count": 5,
+  "trade_count": 9,
+  "win_count": 6,
   "loss_count": 3,
-  "last_update": "2026-10-06 05:01:02",
+  "last_update": "2026-10-06 06:01:06",
   "last_digest_date": "2026-10-06",
   "last_hourly_alert": "2026-10-06 05:01:02",
-  "loss_cooldowns": {
-    "FET/USDT": "2026-10-06T05:05:00+00:00"
-  }
+  "loss_cooldowns": {}
 }
