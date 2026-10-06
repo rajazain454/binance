@@ -29,3 +29,4 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-05 17:05:18,OP/USDT,BUY (ENTER),0.1341,11.28,0.131,0.1368,0.1394,58.4,2.4,AI Quant Confluence,RSI(14): 47.2 | StochRSI: 24/26 | BB %B: 0.52 | CMF: -0.05 | SuperTrend: BEARISH,BULLISH,PAPER
 2026-10-05 20:10:01,SEI/USDT,PARTIAL TP1 (50% SOLD),0.072,0.0735,5.28,0.1,1.88,TP1 Reached (50% profit booked). Stop Loss locked to BREAKEVEN!,WIN
 2026-10-05 20:10:01,OP/USDT,PARTIAL TP1 (50% SOLD),0.1341,0.1379,5.64,0.15,2.58,TP1 Reached (50% profit booked). Stop Loss locked to BREAKEVEN!,WIN
+2026-10-06 01:01:02,OP/USDT,FINAL CLOSE,0.1341,0.1372,5.64,0.12,2.06,CHANDELIER TRAILING EXIT (SL Ratcheted to $0.1376 | Peak: $0.1403),WIN
