@@ -17,6 +17,12 @@ __pycache__/
 # Large raw training cache files (live bot uses models/ and queries live candles)
 data/*.csv
 
+# Local log files and test artifacts
+logs/*.log
+logs/archive/
+logs/test_*.json
+test_*.json
+
 # Keep directory structure
 !data/.gitkeep
 !logs/.gitkeep

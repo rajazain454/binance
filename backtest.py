@@ -20,11 +20,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import features
 from binance_client import BinanceClient
-
-
-def load_config(config_path="config.json"):
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+from utils import load_config
 
 
 def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
@@ -68,11 +64,53 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
     tp1_reached = False
     entry_price = 0.0
     entry_time = None
+    entry_bar_idx = 0
     stop_loss = 0.0
     take_profit_1 = 0.0
     take_profit_2 = 0.0
     pos_units = 0.0
     allocated_cash = 0.0
+    highest_price = 0.0
+    pos_atr = 0.0
+
+    # Live-aligned parameters
+    max_hold_bars = config.get("risk_management", {}).get("max_holding_hours", 48)
+    min_reserve_pct = config.get("risk_management", {}).get("min_cash_reserve_pct", 0.15)
+    trail_cfg = config.get("trailing_stop", {})
+    use_chandelier = trail_cfg.get("enabled", False)
+    trail_mult = trail_cfg.get("atr_mult", 2.2)
+    cooldown_bars = config.get("risk_management", {}).get("loss_cooldown_hours", 12)
+    req_bull_st = ai_cfg.get("require_bull_supertrend", True)
+    min_cmf = ai_cfg.get("min_cmf", -0.05)
+
+    # Circuit breaker and BTC cascade parameters (matches live bot)
+    cb_cfg = config.get("risk_management", {})
+    max_dd_pct = cb_cfg.get("daily_max_drawdown_pct", 8.0)
+    cb_hours = cb_cfg.get("circuit_breaker_hours", 24)
+    cb_until_bar = -1
+
+    btc_cascade_series = None
+    if symbol != "BTC/USDT":
+        clean_btc = "binance_BTC_USDT_1h.csv"
+        btc_path = os.path.join(config.get("paths", {}).get("data_dir", "data"), clean_btc)
+        if os.path.exists(btc_path):
+            try:
+                btc_df = pd.read_csv(btc_path, index_col=0, parse_dates=True)
+                btc_ret_1h = btc_df["close"].pct_change()
+                btc_cascade_series = btc_ret_1h.reindex(df_aligned.index, method="ffill")
+            except Exception:
+                pass
+
+    # Cooldown tracking
+    cooldown_until_bar = -1
+
+    # Pre-compute SuperTrend and CMF for filter alignment with live bot
+    try:
+        st_series, _ = features.compute_supertrend(df_aligned, 10, 3.0)
+        cmf_series = features.compute_cmf(df_aligned, 20)
+    except Exception:
+        st_series = pd.Series(1.0, index=df_aligned.index)
+        cmf_series = pd.Series(0.0, index=df_aligned.index)
 
     equity_curve = []
 
@@ -85,6 +123,9 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
         prob = float(probs[i])
 
         if in_pos:
+            # Track highest price for chandelier trailing
+            highest_price = max(highest_price, h)
+
             # Stage 1: Partial Scale-Out (50%) at TP1 & Breakeven Lock
             if not tp1_reached and h >= take_profit_1:
                 sell_units = pos_units * partial_ratio
@@ -113,26 +154,43 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
                     "win": True
                 })
 
-            # Stage 2: Final TP2 or Stop Loss Exit
+            # Chandelier Dynamic Trailing Stop (after TP1 banked)
+            if use_chandelier and tp1_reached and pos_atr > 0:
+                chandelier_stop = highest_price - (trail_mult * pos_atr)
+                be_level = entry_price * 1.001
+                stop_loss = max(stop_loss, chandelier_stop, be_level)
+
+            # Max holding time exit
+            bars_held = i - entry_bar_idx
+            is_stale = (max_hold_bars > 0) and (bars_held >= max_hold_bars)
+
+            # Stage 2: Final TP2, Stop Loss, Chandelier Exit, or Max Hold Exit
             hit_tp2 = h >= take_profit_2
             hit_sl = l <= stop_loss
 
-            if hit_tp2 or hit_sl:
+            if hit_tp2 or hit_sl or is_stale:
                 if hit_tp2 and hit_sl:
                     exit_price = stop_loss
                     exit_reason = "Stop Loss (High Volatility)"
                 elif hit_tp2:
                     exit_price = take_profit_2
                     exit_reason = "TP2 Final Target"
+                elif is_stale and not hit_sl:
+                    exit_price = c
+                    exit_reason = f"Max Holding Time ({max_hold_bars}h)"
+                elif tp1_reached:
+                    exit_price = stop_loss
+                    exit_reason = "Chandelier Trailing Exit"
                 else:
                     exit_price = stop_loss
-                    exit_reason = "Breakeven Lock Exit" if tp1_reached else "Stop Loss"
+                    exit_reason = "Stop Loss"
 
                 gross_ret = (exit_price / entry_price) - 1.0
                 fee_cost = (allocated_cash * cost_rate) * 2.0
                 net_pnl = (pos_units * (exit_price - entry_price)) - fee_cost
                 capital += net_pnl
-                win = net_pnl > 0 or (tp1_reached and exit_price >= entry_price)
+                # Match live bot: tp1_reached counts as win
+                win = hit_tp2 or (exit_price >= entry_price) or tp1_reached
 
                 trades.append({
                     "symbol": symbol,
@@ -146,28 +204,79 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
                     "win": win
                 })
                 in_pos = False
+
+                # Set loss cooldown (matches live bot)
+                if not win and cooldown_bars > 0:
+                    cooldown_until_bar = i + cooldown_bars
+
                 tp1_reached = False
 
-        # Entry logic: 1h confidence threshold + MTF 4h macro confluence
+        # Entry logic: confidence threshold + MTF 4h + SuperTrend + CMF filters
         use_mtf = config.get("mtf_confluence", {}).get("enabled", True)
         is_mtf_bullish = bool(feat_df["mtf_4h_bullish"].iloc[i] > 0.5) if ("mtf_4h_bullish" in feat_df and use_mtf) else True
 
-        if not in_pos and prob >= conf_thresh and is_mtf_bullish and not np.isnan(curr_atr) and curr_atr > 0:
+        # SuperTrend and CMF filter gates (aligned with live bot)
+        is_supertrend_bull = bool(st_series.iloc[i] > 0.5) if i < len(st_series) else True
+        cmf_val = float(cmf_series.iloc[i]) if i < len(cmf_series) else 0.0
+        supertrend_ok = (not req_bull_st) or is_supertrend_bull
+        cmf_ok = cmf_val >= min_cmf
+
+        # Loss cooldown check (aligned with live bot)
+        is_on_cooldown = (i < cooldown_until_bar)
+
+        # 24h rolling circuit breaker check (aligned with live bot)
+        rolling_24h_peak = max(equity_curve[-24:]) if len(equity_curve) >= 24 else peak_capital
+        if rolling_24h_peak > 0:
+            rolling_dd = ((capital / rolling_24h_peak) - 1.0) * 100.0
+            if rolling_dd <= -max_dd_pct:
+                cb_until_bar = max(cb_until_bar, i + cb_hours)
+        cb_locked = (i < cb_until_bar)
+
+        # BTC cascade halt check (aligned with live bot)
+        btc_halt_thresh = config.get("risk_management", {}).get("btc_cascade_halt_pct", -0.025)
+        is_btc_halted = False
+        if btc_cascade_series is not None and i < len(btc_cascade_series):
+            ret_val = float(btc_cascade_series.iloc[i])
+            if not np.isnan(ret_val) and ret_val <= btc_halt_thresh:
+                is_btc_halted = True
+
+        if (not in_pos and prob >= conf_thresh and is_mtf_bullish
+                and supertrend_ok and cmf_ok and not is_on_cooldown
+                and not cb_locked and not is_btc_halted
+                and not np.isnan(curr_atr) and curr_atr > 0):
             entry_price = c
             entry_time = t
+            entry_bar_idx = i
             stop_loss = entry_price - (sl_mult * curr_atr)
             take_profit_1 = entry_price + (tp1_mult * curr_atr)
             take_profit_2 = entry_price + (tp2_mult * curr_atr)
             tp1_reached = False
+            highest_price = c
+            pos_atr = curr_atr
 
-            risk_amount = capital * risk_pct
+            # Dynamic alpha sizing (aligned with live bot)
+            dynamic_sizing = config.get("risk_management", {}).get("dynamic_alpha_sizing", True)
+            if dynamic_sizing:
+                surplus = max(-0.10, min(0.20, prob - conf_thresh))
+                alpha_mult = 1.0 + (surplus * 2.0)
+                eff_risk_pct = risk_pct * alpha_mult
+            else:
+                eff_risk_pct = risk_pct
+
+            risk_amount = capital * eff_risk_pct
             risk_per_unit = entry_price - stop_loss
             if risk_per_unit > 0:
                 units = risk_amount / risk_per_unit
-                # Cap maximum allocation to 95% of bankroll
-                allocated_cash = min(capital * 0.95, units * entry_price)
-                pos_units = allocated_cash / entry_price
-                in_pos = True
+                # Cash reserve & portfolio cap enforcement (aligned with live bot)
+                min_reserve = capital * min_reserve_pct
+                spendable = max(0.0, capital - min_reserve)
+                max_trade_pct = config.get("risk_management", {}).get("max_trade_allocation_pct", 0.32)
+                portfolio_cap = capital * max_trade_pct
+                allocated_cash = min(spendable * 0.95, portfolio_cap, units * entry_price)
+                min_notional = float(config.get("risk_management", {}).get("min_notional_usdt", 5.0))
+                if allocated_cash >= min_notional:  # Dynamic Binance minNotional
+                    pos_units = allocated_cash / entry_price
+                    in_pos = True
 
         equity_curve.append(capital)
         peak_capital = max(peak_capital, capital)

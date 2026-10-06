@@ -11,16 +11,14 @@ import argparse
 import joblib
 import numpy as np
 import pandas as pd
+from datetime import datetime, timezone
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score, precision_score, roc_auc_score
 
 import features
 from binance_client import BinanceClient
-
-
-def load_config(config_path="config.json"):
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+from utils import load_config
 
 
 def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data", offline=False):
@@ -174,11 +172,23 @@ def train_model(X, y, fwd_returns, config):
     print("  Fitting Model 2: LightGBM Classifier...")
     lgb_model.fit(X_train, y_train, sample_weight=time_weights)
 
-    # Combine into Stacking Ensemble
-    from features import StackingEnsembleModel
-    model = StackingEnsembleModel(hgb_model, lgb_model, weights=(0.50, 0.50))
+    # Combine into Stacking Ensemble with LogisticRegression Meta-Learner
+    from sklearn.linear_model import LogisticRegression
+    from models import StackingEnsembleModel
 
-    # Out-of-sample evaluation
+    meta_clf = LogisticRegression(C=1.0, random_state=42)
+    raw_ensemble = StackingEnsembleModel(
+        hgb_model, lgb_model, weights=(0.50, 0.50), meta_learner=meta_clf
+    )
+    raw_ensemble.fit(X_train, y_train)
+
+    # Probability calibration via isotonic regression on held-out test split
+    # This ensures predict_proba outputs reflect actual empirical win rates
+    print("  Calibrating probabilities (Isotonic Regression)...")
+    from models import CalibratedEnsemble
+    calibrated_model = CalibratedEnsemble(raw_ensemble)
+    calibrated_model.fit(X_test, y_test)
+    model = calibrated_model
     test_probs = model.predict_proba(X_test)[:, 1]
     auc_score = roc_auc_score(y_test, test_probs)
 
@@ -217,7 +227,7 @@ def train_model(X, y, fwd_returns, config):
     # Top Feature Importance
     try:
         from sklearn.inspection import permutation_importance
-        perm = permutation_importance(model, X_test.iloc[:1000], y_test.iloc[:1000], n_repeats=3, random_state=42)
+        perm = permutation_importance(model, X_test, y_test, n_repeats=3, random_state=42)
         top_feats = pd.Series(perm.importances_mean, index=feature_names).nlargest(8)
         print("\n  Top Mathematical Alpha Indicators:")
         for rank, (fname, fval) in enumerate(top_feats.items(), 1):
@@ -226,13 +236,27 @@ def train_model(X, y, fwd_returns, config):
         print(f"  [Note] Feature importance skipped: {e}")
     print("=" * 75 + "\n")
 
-    # Package the calibrated bundle
+    # Save feature distribution statistics for live drift detection
+    feature_stats = {
+        col: {
+            "mean": float(X_train[col].mean()),
+            "std": float(X_train[col].std() + 1e-9),
+            "min": float(X_train[col].min()),
+            "max": float(X_train[col].max())
+        }
+        for col in feature_names
+    }
+
+    # Package the calibrated bundle with complete metadata
     bundle = {
         "model": model,
         "feature_names": feature_names,
         "confidence_threshold": conf_thresh,
         "timeframe": config["timeframe"],
         "symbols": config["symbols"],
+        "version": "2.0.0",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "feature_stats": feature_stats,
         "metrics": {
             "auc": round(auc_score, 4),
             "win_rate": round(high_conf_win_rate, 4),

@@ -1,26 +1,15 @@
-"""QuantLab Binance Quantitative AI Trading Bot.
+"""QuantLab Binance AI Trading Bot Package.
 
-Entrypoint wrapper providing 100% backward-compatible access to the modular
-subpackages in `bot/`:
-- `bot.state`: State loading, saving, circuit breaker, and live exchange reconciliation
-- `bot.positions`: Position management, dynamic TP/SL, and chandelier trailing
-- `bot.scanner`: Market scanning, macro regime detection, and correlation filter
-- `bot.alerts`: Discord alerts and daily performance digests
-- `bot.dashboard`: Terminal CLI table dashboard rendering
-- `bot.ledger`: Normalized trade logging
-- `bot.main`: Execution orchestration and CLI runner
+Modular subpackages:
+- bot.state: Portfolio state loading, saving, and exchange reconciliation.
+- bot.positions: Real-time position tracking, TP/SL, and chandelier trailing stops.
+- bot.scanner: Market analysis, macro regime detection, and candidate filtering.
+- bot.alerts: Discord webhook alerts and daily performance digests.
+- bot.dashboard: Interactive CLI table dashboard rendering.
+- bot.ledger: Standardized trade logging.
+- bot.main: Execution loop, single-cycle orchestration, and CLI entrypoint.
 """
 
-import sys
-
-# Ensure UTF-8 output on Windows consoles
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
-
-# Re-export all core components for backward compatibility
 from utils import TRADE_CSV_COLUMNS, load_config, setup_logger
 from bot.ledger import log_trade
 from bot.alerts import send_discord_alert, send_daily_digest
@@ -61,6 +50,3 @@ __all__ = [
     "execute_cycle",
     "main",
 ]
-
-if __name__ == "__main__":
-    main()

@@ -141,6 +141,14 @@ class BinanceClient:
             return {"USDT": {"free": self.config["risk_management"]["capital_usdt"], "total": self.config["risk_management"]["capital_usdt"]}}
         return self.exchange.fetch_balance()
 
+    def get_min_notional(self, symbol):
+        """Returns the minimum order notional (cost) in quote currency (usually USDT) for symbol."""
+        self.load_markets_once()
+        market = self.exchange.market(symbol) if (self.exchange.markets and symbol in self.exchange.markets) else None
+        if not market:
+            return 5.0
+        return float(market.get("limits", {}).get("cost", {}).get("min", 5.0) or 5.0)
+
     def sanitize_order_amount(self, symbol, amount, price):
         """
         Rounds amount and price strictly according to Binance LOT_SIZE,

@@ -1,7 +1,7 @@
 {
-  "balance_usdt": 20.914453651846124,
-  "peak_balance": 30.04,
-  "daily_peak_balance": 30.168591193023815,
+  "balance_usdt": 91.1680835491395,
+  "peak_balance": 100.0,
+  "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-06T00:01:07.802730+00:00",
   "circuit_breaker_until": null,
   "open_positions": {

@@ -14,9 +14,7 @@ def clear():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def load_config():
-    with open("config.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+from utils import load_config
 
 
 def save_config(cfg):

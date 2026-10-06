@@ -549,7 +549,9 @@ def evaluate_relative_strength(df_alt, df_btc, period=24):
             "btc_ret_24h": round(btc_ret_24 * 100, 2),
             "is_leader": is_leader
         }
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger("quantlab").debug("Relative strength evaluation failed: %s", e)
         return False, {"alpha_24h": 0.0, "rs_ratio": 1.0, "is_leader": False}
 
 
@@ -616,30 +618,5 @@ def label_triple_barrier(df, horizon_bars=12, tp_atr_mult=2.2, sl_atr_mult=1.4):
     return label_series, ret_series
 
 
-class StackingEnsembleModel:
-    """
-    Multi-Model Stacking Ensemble combining HistGradientBoosting and LightGBM.
-    Leverages distinct tree growing paradigms (depth-wise vs leaf-wise)
-    to eliminate individual model blind spots and sharpen probability calibration.
-    """
-    def __init__(self, hgb_model, lgb_model, weights=(0.50, 0.50)):
-        self.hgb = hgb_model
-        self.lgb = lgb_model
-        self.weights = weights
-
-    def fit(self, X, y):
-        self.hgb.fit(X, y)
-        self.lgb.fit(X, y)
-        return self
-
-    def predict_proba(self, X):
-        p_hgb = self.hgb.predict_proba(X)[:, 1]
-        p_lgb = self.lgb.predict_proba(X)[:, 1]
-        p_ens = (p_hgb * self.weights[0]) + (p_lgb * self.weights[1])
-        return np.column_stack([1.0 - p_ens, p_ens])
-
-    def predict(self, X):
-        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
-
-    def score(self, X, y):
-        return float(np.mean(self.predict(X) == y))
+# Backward-compatible re-export — canonical location is now models.py
+from models import StackingEnsembleModel  # noqa: F401

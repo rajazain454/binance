@@ -36,9 +36,9 @@
     "min_cmf": -0.02,
     "lookback_bars": 300,
     "horizon_bars": 12,
-    "tp1_atr_mult": 1.2,
-    "tp2_atr_mult": 2.4,
-    "sl_atr_mult": 1.4,
+    "tp1_atr_mult": 1.5,
+    "tp2_atr_mult": 2.8,
+    "sl_atr_mult": 1.2,
     "partial_tp_ratio": 0.50,
     "breakeven_lock_enabled": true
   },
@@ -59,7 +59,8 @@
     "atr_mult": 1.2
   },
   "risk_management": {
-    "capital_usdt": 30.0,
+    "capital_usdt": 100.0,
+    "min_notional_usdt": 5.0,
     "risk_per_trade_pct": 2.0,
     "max_open_trades": 3,
     "min_cash_reserve_pct": 0.15,
