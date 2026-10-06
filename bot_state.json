@@ -9,11 +9,11 @@
       "entry_price": 0.2688,
       "allocated_usdt": 6.654686224354106,
       "units": 24.75701720369831,
-      "stop_loss": 0.26150999999999996,
+      "stop_loss": 0.26906879999999994,
       "take_profit_1": 0.2750485714285714,
       "take_profit_2": 0.28129714285714286,
-      "tp1_reached": false,
-      "highest_price": 0.2749,
+      "tp1_reached": true,
+      "highest_price": 0.2768,
       "atr": 0.005207142857142856,
       "entry_time": "2026-10-05 04:01:38",
       "confidence": 59.1,
@@ -23,9 +23,9 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2742,
-      "unrealized_pnl": 0.13,
-      "unrealized_pnl_pct": 2.01
+      "curr_price": 0.2768,
+      "unrealized_pnl": 0.2,
+      "unrealized_pnl_pct": 2.98
     },
     "NEAR/USDT": {
       "entry_price": 5.311,
@@ -46,7 +46,10 @@
         "Institutional Volume Flow Accumulation"
       ],
       "indicators_summary": "RSI(14): 65.4 | StochRSI: 39/47 | BB %B: 0.75 | CMF: +0.25 | SuperTrend: BULLISH | CVD: BEAR",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 5.262,
+      "unrealized_pnl": -0.08,
+      "unrealized_pnl_pct": -0.92
     },
     "DOGE/USDT": {
       "entry_price": 0.09493,
@@ -56,7 +59,7 @@
       "take_profit_1": 0.09551799999999999,
       "take_profit_2": 0.096106,
       "tp1_reached": false,
-      "highest_price": 0.09493,
+      "highest_price": 0.09496,
       "atr": 0.0004899999999999974,
       "entry_time": "2026-10-06 09:00:55",
       "confidence": 60.1,
@@ -65,13 +68,16 @@
         "SuperTrend Dip Pullback"
       ],
       "indicators_summary": "RSI(14): 50.9 | StochRSI: 82/85 | BB %B: 0.46 | CMF: +0.03 | SuperTrend: BULLISH | CVD: BEAR",
-      "macro_4h": "BULLISH"
+      "macro_4h": "BULLISH",
+      "curr_price": 0.09496,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.03
     }
   },
   "trade_count": 9,
   "win_count": 6,
   "loss_count": 3,
-  "last_update": "2026-10-06 09:00:56",
+  "last_update": "2026-10-06 10:01:07",
   "last_digest_date": "2026-10-06",
   "last_hourly_alert": "2026-10-06 08:01:05",
   "loss_cooldowns": {}
