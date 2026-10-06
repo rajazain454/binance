@@ -23,19 +23,19 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2753,
-      "unrealized_pnl": 0.16,
-      "unrealized_pnl_pct": 2.42
+      "curr_price": 0.2759,
+      "unrealized_pnl": 0.18,
+      "unrealized_pnl_pct": 2.64
     },
     "DOGE/USDT": {
       "entry_price": 0.09493,
       "allocated_usdt": 9.349979416115534,
       "units": 98.4934100507272,
-      "stop_loss": 0.09551200000000001,
+      "stop_loss": 0.095792,
       "take_profit_1": 0.09551799999999999,
       "take_profit_2": 0.096106,
       "tp1_reached": true,
-      "highest_price": 0.0961,
+      "highest_price": 0.09638,
       "atr": 0.0004899999999999974,
       "entry_time": "2026-10-06 09:00:55",
       "confidence": 60.1,
@@ -45,9 +45,9 @@
       ],
       "indicators_summary": "RSI(14): 50.9 | StochRSI: 82/85 | BB %B: 0.46 | CMF: +0.03 | SuperTrend: BULLISH | CVD: BEAR",
       "macro_4h": "BULLISH",
-      "curr_price": 0.0961,
-      "unrealized_pnl": 0.12,
-      "unrealized_pnl_pct": 1.23
+      "curr_price": 0.09638,
+      "unrealized_pnl": 0.14,
+      "unrealized_pnl_pct": 1.53
     },
     "RENDER/USDT": {
       "entry_price": 2.15,
@@ -57,7 +57,7 @@
       "take_profit_1": 2.1937142857142855,
       "take_profit_2": 2.237428571428571,
       "tp1_reached": false,
-      "highest_price": 2.167,
+      "highest_price": 2.173,
       "atr": 0.03642857142857138,
       "entry_time": "2026-10-06 13:01:14",
       "confidence": 60.4,
@@ -68,17 +68,17 @@
       ],
       "indicators_summary": "RSI(14): 63.0 | StochRSI: 31/47 | BB %B: 0.91 | CMF: +0.19 | SuperTrend: BULLISH | CVD: BULL",
       "macro_4h": "BULLISH",
-      "curr_price": 2.167,
-      "unrealized_pnl": 0.07,
-      "unrealized_pnl_pct": 0.79
+      "curr_price": 2.173,
+      "unrealized_pnl": 0.09,
+      "unrealized_pnl_pct": 1.07
     }
   },
   "trade_count": 10,
   "win_count": 6,
   "loss_count": 4,
-  "last_update": "2026-10-06 14:01:10",
+  "last_update": "2026-10-06 15:01:09",
   "last_digest_date": "2026-10-06",
-  "last_hourly_alert": "2026-10-06 14:01:10",
+  "last_hourly_alert": "2026-10-06 15:01:09",
   "loss_cooldowns": {
     "NEAR/USDT": "2026-10-07T01:01:08.159224+00:00"
   }
