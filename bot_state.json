@@ -24,17 +24,17 @@
       ],
       "indicators_summary": "RSI(14): 63.0 | StochRSI: 31/47 | BB %B: 0.91 | CMF: +0.19 | SuperTrend: BULLISH | CVD: BULL",
       "macro_4h": "BULLISH",
-      "curr_price": 2.174,
-      "unrealized_pnl": 0.1,
-      "unrealized_pnl_pct": 1.12
+      "curr_price": 2.167,
+      "unrealized_pnl": 0.07,
+      "unrealized_pnl_pct": 0.79
     }
   },
   "trade_count": 12,
   "win_count": 8,
   "loss_count": 4,
-  "last_update": "2026-10-06 18:01:04",
+  "last_update": "2026-10-06 19:01:20",
   "last_digest_date": "2026-10-06",
-  "last_hourly_alert": "2026-10-06 18:01:03",
+  "last_hourly_alert": "2026-10-06 19:01:20",
   "loss_cooldowns": {
     "NEAR/USDT": "2026-10-07T01:01:08.159224+00:00"
   }
