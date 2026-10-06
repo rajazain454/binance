@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 4.964690769003466,
+  "balance_usdt": 4.837648760404335,
   "peak_balance": 30.04,
   "daily_peak_balance": 30.168591193023815,
   "daily_reset_time": "2026-10-06T00:01:07.802730+00:00",
@@ -23,39 +23,15 @@
       ],
       "indicators_summary": "RSI(14): 87.6 | StochRSI: 90/86 | BB %B: 0.98 | CMF: -0.04 | SuperTrend: BULLISH",
       "macro_4h": "BULLISH",
-      "curr_price": 0.2792,
-      "unrealized_pnl": 0.26,
-      "unrealized_pnl_pct": 3.87
-    },
-    "NEAR/USDT": {
-      "entry_price": 5.311,
-      "allocated_usdt": 8.979234783550707,
-      "units": 1.6906862706742058,
-      "stop_loss": 5.1826,
-      "take_profit_1": 5.421057142857142,
-      "take_profit_2": 5.531114285714286,
-      "tp1_reached": false,
-      "highest_price": 5.311,
-      "atr": 0.0917142857142857,
-      "entry_time": "2026-10-06 09:00:55",
-      "confidence": 60.3,
-      "strategy_score": 56.6,
-      "strategy_setups": [
-        "Bollinger Squeeze Breakout",
-        "SuperTrend Dip Pullback",
-        "Institutional Volume Flow Accumulation"
-      ],
-      "indicators_summary": "RSI(14): 65.4 | StochRSI: 39/47 | BB %B: 0.75 | CMF: +0.25 | SuperTrend: BULLISH | CVD: BEAR",
-      "macro_4h": "BULLISH",
-      "curr_price": 5.244,
-      "unrealized_pnl": -0.11,
-      "unrealized_pnl_pct": -1.26
+      "curr_price": 0.277,
+      "unrealized_pnl": 0.2,
+      "unrealized_pnl_pct": 3.05
     },
     "DOGE/USDT": {
       "entry_price": 0.09493,
       "allocated_usdt": 9.349979416115534,
       "units": 98.4934100507272,
-      "stop_loss": 0.09502493,
+      "stop_loss": 0.095102,
       "take_profit_1": 0.09551799999999999,
       "take_profit_2": 0.096106,
       "tp1_reached": true,
@@ -69,16 +45,38 @@
       ],
       "indicators_summary": "RSI(14): 50.9 | StochRSI: 82/85 | BB %B: 0.46 | CMF: +0.03 | SuperTrend: BULLISH | CVD: BEAR",
       "macro_4h": "BULLISH",
-      "curr_price": 0.09569,
-      "unrealized_pnl": 0.07,
-      "unrealized_pnl_pct": 0.8
+      "curr_price": 0.09546,
+      "unrealized_pnl": 0.05,
+      "unrealized_pnl_pct": 0.56
+    },
+    "RENDER/USDT": {
+      "entry_price": 2.15,
+      "allocated_usdt": 8.831916450860504,
+      "units": 4.107868116679304,
+      "stop_loss": 2.099,
+      "take_profit_1": 2.1937142857142855,
+      "take_profit_2": 2.237428571428571,
+      "tp1_reached": false,
+      "highest_price": 2.15,
+      "atr": 0.03642857142857138,
+      "entry_time": "2026-10-06 13:01:14",
+      "confidence": 60.4,
+      "strategy_score": 82.5,
+      "strategy_setups": [
+        "Bollinger Squeeze Breakout",
+        "Institutional Volume Flow Accumulation"
+      ],
+      "indicators_summary": "RSI(14): 63.0 | StochRSI: 31/47 | BB %B: 0.91 | CMF: +0.19 | SuperTrend: BULLISH | CVD: BULL",
+      "macro_4h": "BULLISH"
     }
   },
-  "trade_count": 9,
+  "trade_count": 10,
   "win_count": 6,
-  "loss_count": 3,
-  "last_update": "2026-10-06 12:01:06",
+  "loss_count": 4,
+  "last_update": "2026-10-06 13:01:15",
   "last_digest_date": "2026-10-06",
   "last_hourly_alert": "2026-10-06 10:44:18",
-  "loss_cooldowns": {}
+  "loss_cooldowns": {
+    "NEAR/USDT": "2026-10-07T01:01:08.159224+00:00"
+  }
 }

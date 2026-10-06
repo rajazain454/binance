@@ -35,3 +35,5 @@ timestamp,symbol,action,price,size_usdt,stop_loss,take_profit,confidence_pct,mod
 2026-10-06 09:00:55,DOGE/USDT,BUY (ENTER),0.0949,9.35,0.0942,0.0955,0.0961,60.1,49.5,SuperTrend Dip Pullback,RSI(14): 50.9 | StochRSI: 82/85 | BB %B: 0.46 | CMF: +0.03 | SuperTrend: BULLISH | CVD: BEAR,BULLISH,PAPER
 2026-10-06 10:01:03,ADA/USDT,BREAKEVEN LOCK (SMALL ACCOUNT),0.2688,0.2768,6.65,0.0,0.0,TP1 reached! Size ($3.33) < $5 minNotional. Stop Loss locked to BREAKEVEN for 100% position!,WIN
 2026-10-06 12:01:02,DOGE/USDT,BREAKEVEN LOCK (SMALL ACCOUNT),0.0949,0.0957,9.35,0.0,0.0,TP1 reached! Size ($4.67) < $5 minNotional. Stop Loss locked to BREAKEVEN for 100% position!,WIN
+2026-10-06 13:01:10,NEAR/USDT,FINAL CLOSE,5.311,5.162,8.98,-0.27,-3.06,STOP LOSS HIT,LOSS
+2026-10-06 13:01:14,RENDER/USDT,BUY (ENTER),2.15,8.83,2.099,2.1937,2.2374,60.4,82.5,Bollinger Squeeze Breakout + Institutional Volume Flow Accumulation,RSI(14): 63.0 | StochRSI: 31/47 | BB %B: 0.91 | CMF: +0.19 | SuperTrend: BULLISH | CVD: BULL,BULLISH,PAPER
