@@ -2,14 +2,14 @@
   "balance_usdt": 99.63696715518847,
   "peak_balance": 100.0,
   "daily_peak_balance": 99.63696715518847,
-  "daily_reset_time": "2026-10-09T03:01:01.389159+00:00",
+  "daily_reset_time": "2026-10-10T04:01:03.849554+00:00",
   "circuit_breaker_until": null,
   "open_positions": {},
   "trade_count": 13,
   "win_count": 8,
   "loss_count": 5,
-  "last_update": "2026-10-10 03:00:58",
+  "last_update": "2026-10-10 04:01:07",
   "last_digest_date": "2026-10-10",
-  "last_hourly_alert": "2026-10-10 03:00:58",
+  "last_hourly_alert": "2026-10-10 04:01:07",
   "loss_cooldowns": {}
 }
