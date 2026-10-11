@@ -149,7 +149,14 @@ def execute_cycle(client, model_bundle, config):
                 top_cands = sorted(analysis_rows, key=lambda x: (x["prob_win"], x["strategy_score"]), reverse=True)[:3]
                 cand_lines = []
                 for c in top_cands:
-                    cand_lines.append(f"• **{c['symbol']}**: AI Conviction `{c['prob_win']*100:.1f}%` | Status: `{c['status']}` | Setup: *{c['active_setups']}*")
+                    setups_list = c.get("active_setups", [])
+                    if isinstance(setups_list, list) and setups_list:
+                        setups_display = " + ".join(setups_list)
+                    elif setups_list:
+                        setups_display = str(setups_list)
+                    else:
+                        setups_display = "Scanning"
+                    cand_lines.append(f"• **{c['symbol']}**: AI Conviction `{c['prob_win']*100:.1f}%` | Status: `{c['status']}` | Setup: *{setups_display}*")
                 cand_str = "\n".join(cand_lines) if cand_lines else "Scanning..."
 
                 fields = [

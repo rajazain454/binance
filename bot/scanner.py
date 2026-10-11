@@ -246,22 +246,22 @@ def scan_and_execute(client, model_bundle, state, config):
                 status = "COOLDOWN"
             elif funding_overheated:
                 status = "FUNDING HOT"
-            elif not supertrend_ok:
+            elif is_high_conviction and not supertrend_ok:
                 status = "BEAR TREND"
-            elif not exhaustion_ok:
+            elif is_high_conviction and not exhaustion_ok:
                 status = "OVERBOUGHT"
-            elif not strat_score_ok:
+            elif is_high_conviction and not strat_score_ok:
                 status = "WEAK SETUP"
-            elif not setup_ok:
+            elif is_high_conviction and not setup_ok:
                 status = "NO SETUP"
-            elif not cmf_ok:
+            elif is_high_conviction and not cmf_ok:
                 status = "OUTFLOW"
+            elif is_high_conviction and not confluence_passed:
+                status = "4H BLOCKED"
             elif is_rs_override and tech_confluence_passed:
                 status = "RS ALPHA"
             elif is_high_conviction and confluence_passed and tech_confluence_passed:
                 status = "BUY TRIGGER"
-            elif is_high_conviction and not confluence_passed:
-                status = "4H BLOCKED"
             else:
                 status = "SCANNING"
 
