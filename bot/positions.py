@@ -111,29 +111,72 @@ def check_and_update_positions(client, state, config):
             except Exception:
                 min_notional = float(config.get("risk_management", {}).get("min_notional_usdt", 5.0))
             if sell_allocated < min_notional:
-                profit_floor = entry_price * 1.001
-                pos["stop_loss"] = max(pos["stop_loss"], profit_floor)
-                pos["tp1_reached"] = True
-                record = {
-                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                    "symbol": sym,
-                    "action": "BREAKEVEN LOCK (SMALL ACCOUNT)",
-                    "entry_price": round(entry_price, 4),
-                    "exit_price": round(curr_price, 4),
-                    "allocated_usdt": round(allocated, 2),
-                    "stop_loss": round(sl, 4),
-                    "tp1": round(tp1, 4),
-                    "tp2": round(tp2, 4),
-                    "net_pnl": 0.0,
-                    "pnl_pct": 0.0,
-                    "confidence_pct": pos.get("confidence", ""),
-                    "reason": f"TP1 reached! Size (${sell_allocated:.2f}) < ${min_notional:.1f} minNotional. Stop Loss locked to BREAKEVEN for 100% position!",
-                    "outcome": "WIN",
-                    "mode": config.get("trading_mode", "paper").upper(),
-                }
-                log_trade(record, config["paths"]["trade_ledger"])
-                closed_signals.append(record)
-                continue
+                full_tp1 = config.get("ai_model", {}).get("full_tp1_on_min_notional", True)
+                if full_tp1 and allocated >= min_notional:
+                    # Full TP1 exit when position cannot be split into dust orders
+                    if config.get("trading_mode") == "live":
+                        try:
+                            client.place_spot_order(sym, "sell", units, price=curr_price)
+                            logger.info("[LIVE SPOT ORDER] Successfully executed 100%% TP1 sell on %s (%s)", sym, units)
+                        except Exception as e:
+                            logger.error("[LIVE ORDER ERROR] Failed to execute full TP1 sell for %s: %s", sym, e)
+
+                    gross_pnl = units * (curr_price - entry_price)
+                    fee = allocated * cost_rate * 2.0
+                    net_pnl = gross_pnl - fee
+                    state["balance_usdt"] += (allocated + net_pnl)
+                    state["trade_count"] += 1
+                    is_win = net_pnl > 0
+                    if is_win:
+                        state["win_count"] += 1
+                    else:
+                        state["loss_count"] += 1
+
+                    record = {
+                        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                        "symbol": sym,
+                        "action": "FINAL CLOSE (FULL TP1 REACHED)",
+                        "entry_price": round(entry_price, 4),
+                        "exit_price": round(curr_price, 4),
+                        "allocated_usdt": round(allocated, 2),
+                        "stop_loss": round(sl, 4),
+                        "tp1": round(tp1, 4),
+                        "tp2": round(tp2, 4),
+                        "net_pnl": round(net_pnl, 2),
+                        "pnl_pct": round((net_pnl / allocated) * 100, 2),
+                        "confidence_pct": pos.get("confidence", ""),
+                        "reason": f"TP1 reached! Size too small to split (< ${min_notional:.1f}), banked 100% full profit!",
+                        "outcome": "WIN" if is_win else "LOSS",
+                        "mode": config.get("trading_mode", "paper").upper(),
+                    }
+                    log_trade(record, config["paths"]["trade_ledger"])
+                    closed_signals.append(record)
+                    symbols_to_remove.append(sym)
+                    continue
+                else:
+                    profit_floor = entry_price * 1.001
+                    pos["stop_loss"] = max(pos["stop_loss"], profit_floor)
+                    pos["tp1_reached"] = True
+                    record = {
+                        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                        "symbol": sym,
+                        "action": "BREAKEVEN LOCK (SMALL ACCOUNT)",
+                        "entry_price": round(entry_price, 4),
+                        "exit_price": round(curr_price, 4),
+                        "allocated_usdt": round(allocated, 2),
+                        "stop_loss": round(sl, 4),
+                        "tp1": round(tp1, 4),
+                        "tp2": round(tp2, 4),
+                        "net_pnl": 0.0,
+                        "pnl_pct": 0.0,
+                        "confidence_pct": pos.get("confidence", ""),
+                        "reason": f"TP1 reached! Size (${sell_allocated:.2f}) < ${min_notional:.1f} minNotional. Stop Loss locked to BREAKEVEN for 100% position!",
+                        "outcome": "WIN",
+                        "mode": config.get("trading_mode", "paper").upper(),
+                    }
+                    log_trade(record, config["paths"]["trade_ledger"])
+                    closed_signals.append(record)
+                    continue
 
             # Real live execution if live mode enabled
             if config.get("trading_mode") == "live":
@@ -151,6 +194,7 @@ def check_and_update_positions(client, state, config):
             pos["units"] -= sell_units
             pos["allocated_usdt"] -= sell_allocated
             pos["tp1_reached"] = True
+            pos["tp1_booked_pnl"] = round(net_pnl, 4)
 
             # Count partial TP1 exits as real closed trades
             state["trade_count"] += 1
@@ -204,10 +248,12 @@ def check_and_update_positions(client, state, config):
             else:
                 exit_reason = "STOP LOSS HIT"
 
-            is_win = hit_tp2 or (curr_price >= entry_price) or pos.get("tp1_reached", False)
             gross_pnl = units * (curr_price - entry_price)
             fee = allocated * cost_rate * 2.0
             net_pnl = gross_pnl - fee
+            total_trade_pnl = pos.get("tp1_booked_pnl", 0.0) + net_pnl
+
+            is_win = hit_tp2 or (curr_price >= entry_price and net_pnl >= 0) or (pos.get("tp1_reached", False) and total_trade_pnl > 0)
 
             state["balance_usdt"] += (allocated + net_pnl)
             state["trade_count"] += 1

@@ -149,6 +149,7 @@ class TestExtremeLevelSuite(unittest.TestCase):
         config["trading_mode"] = "paper"
         config["mtf_confluence"] = {"enabled": False}
         config["correlation_filter"] = {"enabled": False}
+        config["ai_model"]["max_rsi"] = 100.0
         config["paths"] = {"trade_ledger": "logs/test_extreme_ledger.csv"}
 
         # Mock client returning valid candles

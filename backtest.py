@@ -26,11 +26,11 @@ from utils import load_config
 def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
     model = model_bundle["model"]
     feature_names = model_bundle["feature_names"]
-    conf_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.60)
+    conf_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.40)
     ai_cfg = config.get("ai_model", {})
-    tp1_mult = ai_cfg.get("tp1_atr_mult", 1.2)
-    tp2_mult = ai_cfg.get("tp2_atr_mult", ai_cfg.get("tp_atr_mult", 2.4))
-    sl_mult = ai_cfg.get("sl_atr_mult", 1.4)
+    tp1_mult = ai_cfg.get("tp1_atr_mult", 1.5)
+    tp2_mult = ai_cfg.get("tp2_atr_mult", ai_cfg.get("tp_atr_mult", 2.8))
+    sl_mult = ai_cfg.get("sl_atr_mult", 1.2)
     partial_ratio = ai_cfg.get("partial_tp_ratio", 0.50)
     breakeven_lock = ai_cfg.get("breakeven_lock_enabled", True)
     risk_pct = config["risk_management"]["risk_per_trade_pct"] / 100.0
@@ -221,6 +221,14 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
         supertrend_ok = (not req_bull_st) or is_supertrend_bull
         cmf_ok = cmf_val >= min_cmf
 
+        # Exhaustion filter gate (matches live bot)
+        max_rsi = ai_cfg.get("max_rsi", 75.0)
+        max_rsi_norm = (max_rsi / 100.0) if max_rsi > 1.0 else max_rsi
+        max_bb_pos = ai_cfg.get("max_bb_pos", 1.05)
+        curr_rsi = float(feat_df["rsi_14"].iloc[i]) if "rsi_14" in feat_df else 0.50
+        curr_bb_pos = float(feat_df["bb_pos"].iloc[i]) if "bb_pos" in feat_df else 0.50
+        exhaustion_ok = (curr_rsi <= max_rsi_norm) and (curr_bb_pos <= max_bb_pos)
+
         # Loss cooldown check (aligned with live bot)
         is_on_cooldown = (i < cooldown_until_bar)
 
@@ -241,7 +249,7 @@ def run_backtest(df, model_bundle, config, symbol="BTC/USDT"):
                 is_btc_halted = True
 
         if (not in_pos and prob >= conf_thresh and is_mtf_bullish
-                and supertrend_ok and cmf_ok and not is_on_cooldown
+                and supertrend_ok and cmf_ok and exhaustion_ok and not is_on_cooldown
                 and not cb_locked and not is_btc_halted
                 and not np.isnan(curr_atr) and curr_atr > 0):
             entry_price = c

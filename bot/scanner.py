@@ -56,10 +56,11 @@ def compute_asset_correlation(sym1, sym2, ohlcv_map=None, data_dir="data", lookb
 def get_macro_regime_threshold(client, config):
     """
     Computes dynamic confidence threshold based on macro BTC 200 SMA regime.
-    - Macro Bull (BTC > 200 SMA): threshold adjusted slightly with strict 0.60 floor
+    - Macro Bull (BTC > 200 SMA): threshold adjusted slightly with relative floor
     - Macro Bear / Chop (BTC < 200 SMA): threshold raised for defense
     """
-    base_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.62)
+    base_thresh = config.get("ai_model", {}).get("confidence_threshold", 0.40)
+    min_floor = round(base_thresh * 0.85, 2)
     try:
         btc_df = client.fetch_ohlcv("BTC/USDT", timeframe="1d", limit=220)
         if len(btc_df) >= 200:
@@ -67,14 +68,14 @@ def get_macro_regime_threshold(client, config):
             sma200 = float(c.rolling(200).mean().iloc[-1])
             curr_c = float(c.iloc[-1])
             if curr_c > sma200:
-                bull_thresh = max(0.60, round(base_thresh - 0.02, 2))
+                bull_thresh = max(min_floor, round(base_thresh - 0.02, 2))
                 return bull_thresh, f"MACRO BULL ({bull_thresh:.0%})"
             else:
-                bear_thresh = max(0.60, round(base_thresh + 0.05, 2))
+                bear_thresh = round(base_thresh + 0.04, 2)
                 return bear_thresh, f"MACRO DEFENSIVE ({bear_thresh:.0%})"
     except Exception as e:
         logger.warning("Macro regime threshold calculation failed: %s", e)
-    return max(0.60, base_thresh), f"NORMAL ({max(0.60, base_thresh):.0%})"
+    return base_thresh, f"NORMAL ({base_thresh:.0%})"
 
 
 def scan_and_execute(client, model_bundle, state, config):
@@ -218,12 +219,20 @@ def scan_and_execute(client, model_bundle, state, config):
                 confluence_passed = True
                 is_rs_override = True
 
-            # Technical confirmation gates
+            # Technical confirmation gates & exhaustion ceilings
+            max_rsi = ai_cfg.get("max_rsi", 75.0)
+            max_rsi_norm = (max_rsi / 100.0) if max_rsi > 1.0 else max_rsi
+            max_bb_pos = ai_cfg.get("max_bb_pos", 1.05)
+            curr_rsi = float(feat_df["rsi_14"].iloc[-1]) if "rsi_14" in feat_df else 0.50
+            curr_bb_pos = float(feat_df["bb_pos"].iloc[-1]) if "bb_pos" in feat_df else 0.50
+            is_overbought = (curr_rsi > max_rsi_norm) or (curr_bb_pos > max_bb_pos)
+            exhaustion_ok = not is_overbought
+
             supertrend_ok = (not req_bull_st) or is_supertrend_bull
             strat_score_ok = strat_score >= min_strat_score
             setup_ok = (not req_active_setup) or (len(active_setups) > 0)
             cmf_ok = cmf_val >= min_cmf
-            tech_confluence_passed = supertrend_ok and strat_score_ok and setup_ok and cmf_ok
+            tech_confluence_passed = supertrend_ok and strat_score_ok and setup_ok and cmf_ok and exhaustion_ok
 
             is_btc_halted = btc_cascade_halt and (sym != "BTC/USDT")
 
@@ -239,6 +248,8 @@ def scan_and_execute(client, model_bundle, state, config):
                 status = "FUNDING HOT"
             elif not supertrend_ok:
                 status = "BEAR TREND"
+            elif not exhaustion_ok:
+                status = "OVERBOUGHT"
             elif not strat_score_ok:
                 status = "WEAK SETUP"
             elif not setup_ok:
