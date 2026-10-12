@@ -23,9 +23,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import bot
 import features
 from binance_client import BinanceClient
+from tests.base import BaseTestCase
 
 
-class TestExtremeStressFixes(unittest.TestCase):
+class TestExtremeStressFixes(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         np.random.seed(42)
@@ -54,21 +55,15 @@ class TestExtremeStressFixes(unittest.TestCase):
         }, index=dates)
 
     def setUp(self):
+        super().setUp()
         self.config = bot.load_config("config.json")
         self.config["trading_mode"] = "paper"
         self.config["mtf_confluence"] = {"enabled": False}
         self.config["correlation_filter"] = {"enabled": False}
-        self.config["paths"]["trade_ledger"] = "logs/test_stress_fixes_ledger.csv"
-        self.config["paths"]["state_file"] = "logs/test_stress_fixes_state.json"
+        self.override_config_paths(self.config)
 
     def tearDown(self):
-        for f in ["logs/test_stress_fixes_ledger.csv", "logs/test_stress_fixes_state.json",
-                  "data/binance_AAA_USDT_1h.csv", "data/binance_BBB_USDT_1h.csv"]:
-            if os.path.exists(f):
-                try:
-                    os.remove(f)
-                except Exception:
-                    pass
+        super().tearDown()
 
     # =========================================================================
     # TEST 1: OP/USDT FALSE POSITIVE REJECTION

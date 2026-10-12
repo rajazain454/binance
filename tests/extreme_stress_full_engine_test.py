@@ -23,18 +23,20 @@ import bot
 import features
 from bot.positions import check_and_update_positions
 from bot.scanner import scan_and_execute, get_macro_regime_threshold
+from tests.base import BaseTestCase
 from utils import load_config
 
 
-class TestExtremeStressEngine(unittest.TestCase):
+class TestExtremeStressEngine(BaseTestCase):
     """Deep Stress Testing of all engine mechanics under extreme scenarios."""
 
     def setUp(self):
+        super().setUp()
         self.config = load_config("config.json")
         self.config["trading_mode"] = "paper"
         self.config["mtf_confluence"] = {"enabled": False}
         self.config["correlation_filter"] = {"enabled": False}
-        self.config["paths"]["trade_ledger"] = "logs/test_extreme_stress_ledger.csv"
+        self.override_config_paths(self.config)
 
         # 150-bar synthetic candles
         np.random.seed(1337)
@@ -128,7 +130,9 @@ class TestExtremeStressEngine(unittest.TestCase):
 
         self.assertEqual(len(closed), 1)
         self.assertEqual(closed[0]["action"], "PARTIAL TP1 (50% SOLD)")
-        self.assertEqual(closed[0]["outcome"], "WIN")
+        self.assertEqual(closed[0]["outcome"], "EVENT")
+        self.assertEqual(state["trade_count"], 0)
+        self.assertEqual(state["win_count"], 0)
         # Half position remains open
         self.assertIn("TEST/USDT", state["open_positions"])
         self.assertAlmostEqual(state["open_positions"]["TEST/USDT"]["allocated_usdt"], 20.0, places=1)

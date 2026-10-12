@@ -23,9 +23,15 @@ class StackingEnsembleModel:
         self.meta_learner = meta_learner
 
     def fit(self, X, y):
-        self.hgb.fit(X, y)
-        self.lgb.fit(X, y)
-        if self.meta_learner is not None:
+        # Base models are trained beforehand in train.py with time-decay sample weights.
+        # fit() must not refit base models.
+        # Fallback only if base models were never fitted (e.g. standalone test with raw estimators):
+        if not hasattr(self.hgb, "classes_") and hasattr(self.hgb, "fit"):
+            self.hgb.fit(X, y)
+        if not hasattr(self.lgb, "classes_") and hasattr(self.lgb, "fit"):
+            self.lgb.fit(X, y)
+
+        if self.meta_learner is not None and len(np.unique(y)) > 1:
             p_hgb = self.hgb.predict_proba(X)[:, 1]
             p_lgb = self.lgb.predict_proba(X)[:, 1]
             meta_X = np.column_stack([p_hgb, p_lgb])
@@ -36,7 +42,7 @@ class StackingEnsembleModel:
         p_hgb = self.hgb.predict_proba(X)[:, 1]
         p_lgb = self.lgb.predict_proba(X)[:, 1]
         meta_clf = getattr(self, "meta_learner", None)
-        if meta_clf is not None and hasattr(meta_clf, "predict_proba"):
+        if meta_clf is not None and hasattr(meta_clf, "classes_") and hasattr(meta_clf, "predict_proba"):
             meta_X = np.column_stack([p_hgb, p_lgb])
             return meta_clf.predict_proba(meta_X)
         weights = getattr(self, "weights", (0.50, 0.50))
@@ -63,12 +69,16 @@ class CalibratedEnsemble:
 
     def fit(self, X_cal, y_cal):
         raw_probs = self.base_model.predict_proba(X_cal)[:, 1]
-        self.calibrator.fit(raw_probs, y_cal)
+        if len(np.unique(y_cal)) > 1:
+            self.calibrator.fit(raw_probs, y_cal)
         return self
 
     def predict_proba(self, X):
         raw_probs = self.base_model.predict_proba(X)[:, 1]
-        cal_probs = np.clip(self.calibrator.predict(raw_probs), 0.0, 1.0)
+        try:
+            cal_probs = np.clip(self.calibrator.predict(raw_probs), 0.0, 1.0)
+        except Exception:
+            cal_probs = raw_probs
         return np.column_stack([1.0 - cal_probs, cal_probs])
 
     def predict(self, X):

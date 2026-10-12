@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import logging
 import os
 import sys
+import uuid
 import numpy as np
 import pandas as pd
 
@@ -78,11 +79,56 @@ def get_macro_regime_threshold(client, config):
     return base_thresh, f"NORMAL ({base_thresh:.0%})"
 
 
+def check_macro_regime(client, config):
+    """
+    Evaluates whether the market is in Macro Bull Trend or Macro Bear Defense
+    using BTC/USDT daily close relative to 200d SMA with 1% hysteresis buffer.
+    When in Bear Defense, blocks new altcoin long entries to preserve 100% cash.
+    Returns:
+        (is_bear_defense, regime_status_str, btc_price, sma200)
+    """
+    regime_cfg = config.get("macro_regime_filter", {})
+    if not regime_cfg.get("enabled", True):
+        return False, "REGIME FILTER DISABLED", 0.0, 0.0
+
+    period = regime_cfg.get("sma_period", 200)
+    hyst_pct = regime_cfg.get("hysteresis_pct", 0.01)
+    bench_sym = regime_cfg.get("benchmark_symbol", "BTC/USDT")
+    block_in_bear = regime_cfg.get("block_new_entries_in_bear", True)
+
+    try:
+        btc_df = client.fetch_ohlcv(bench_sym, timeframe="1d", limit=period + 25)
+        if len(btc_df) >= period:
+            c = btc_df["close"]
+            sma200 = float(c.rolling(period).mean().iloc[-1])
+            curr_c = float(c.iloc[-1])
+            lower_band = sma200 * (1.0 - hyst_pct)
+            upper_band = sma200 * (1.0 + hyst_pct)
+
+            if curr_c < lower_band:
+                is_defense = block_in_bear
+                return is_defense, f"MACRO BEAR DEFENSE (BTC ${curr_c:,.0f} < 200d SMA ${sma200:,.0f})", curr_c, sma200
+            elif curr_c > upper_band:
+                return False, f"MACRO BULL TREND (BTC ${curr_c:,.0f} > 200d SMA ${sma200:,.0f})", curr_c, sma200
+            else:
+                return False, f"MACRO BUFFER ZONE (BTC ${curr_c:,.0f} ~ 200d SMA ${sma200:,.0f})", curr_c, sma200
+    except Exception as e:
+        logger.warning("Macro regime 200d SMA evaluation failed: %s", e)
+
+    return False, "MACRO REGIME NORMAL", 0.0, 0.0
+
+
 def scan_and_execute(client, model_bundle, state, config):
     """Evaluates Binance market candles, runs model inference, and executes trades."""
     model = model_bundle["model"]
     feat_names = model_bundle["feature_names"]
     conf_thresh, regime_label = get_macro_regime_threshold(client, config)
+    is_bear_defense, macro_status_str, btc_curr_p, btc_sma_val = check_macro_regime(client, config)
+    state["macro_regime"] = macro_status_str
+    state["is_bear_defense"] = is_bear_defense
+    if is_bear_defense:
+        logger.info("[MACRO REGIME] %s. Blocking new altcoin entries; 100%% cash defense active.", macro_status_str)
+
     tp1_mult = config["ai_model"].get("tp1_atr_mult", 1.5)
     tp2_mult = config["ai_model"].get("tp2_atr_mult", 2.8)
     sl_mult = config["ai_model"].get("sl_atr_mult", 1.2)
@@ -91,6 +137,9 @@ def scan_and_execute(client, model_bundle, state, config):
     tf = config["timeframe"]
 
     cb_locked, cb_status = check_circuit_breaker(state, config)
+    is_tradeable = model_bundle.get("tradeable", True)
+    if not is_tradeable:
+        logger.warning("[AI MODEL] Model bundle has tradeable=False (test AUC < 0.54). New trade executions are disabled.")
 
     analysis_rows = []
     new_signals = []
@@ -242,6 +291,8 @@ def scan_and_execute(client, model_bundle, state, config):
                 status = "CIRCUIT PAUSE"
             elif is_btc_halted:
                 status = "BTC CASCADE"
+            elif is_bear_defense:
+                status = "BEAR DEFENSE"
             elif is_on_cooldown:
                 status = "COOLDOWN"
             elif funding_overheated:
@@ -285,7 +336,7 @@ def scan_and_execute(client, model_bundle, state, config):
             analysis_rows.append(row)
 
             # Collect all qualified candidates that passed all filters
-            if (not cb_locked and not is_open and not is_on_cooldown and not is_btc_halted
+            if (is_tradeable and not cb_locked and not is_bear_defense and not is_open and not is_on_cooldown and not is_btc_halted
                 and not funding_overheated and is_high_conviction
                 and confluence_passed and tech_confluence_passed):
                 trade_candidates.append({
@@ -419,7 +470,9 @@ def scan_and_execute(client, model_bundle, state, config):
                             logger.warning("[LIVE OCO WARNING] Could not register native OCO order for %s: %s", sym, e)
 
                 state["balance_usdt"] -= pos_cost
+                pos_id = str(uuid.uuid4())
                 state["open_positions"][sym] = {
+                    "position_id": pos_id,
                     "entry_price": round(c, 4),
                     "allocated_usdt": round(pos_cost, 2),
                     "units": units,
@@ -439,6 +492,7 @@ def scan_and_execute(client, model_bundle, state, config):
 
                 trade_signal = {
                     "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "position_id": pos_id,
                     "symbol": sym,
                     "action": "BUY (ENTER)",
                     "entry_price": round(c, 4),

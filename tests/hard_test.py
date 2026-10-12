@@ -20,12 +20,14 @@ from binance_client import BinanceClient
 import bot
 import backtest
 import train
+from tests.base import BaseTestCase
 
 
-class TestFeaturesEngine(unittest.TestCase):
+class TestFeaturesEngine(BaseTestCase):
     """Stress tests for features.py indicators and labeling."""
 
     def setUp(self):
+        super().setUp()
         # Create standard synthetic OHLCV data
         dates = pd.date_range("2026-01-01", periods=300, freq="1h", tz="UTC")
         np.random.seed(42)
@@ -95,7 +97,7 @@ class TestFeaturesEngine(unittest.TestCase):
         self.assertEqual(details_tiny["status"], "INSUFFICIENT_DATA")
 
 
-class TestRiskAndCircuitBreaker(unittest.TestCase):
+class TestRiskAndCircuitBreaker(BaseTestCase):
     """Stress tests for Area 1: Risk Parity, Circuit Breaker, and TP1/TP2 scaling."""
 
     def test_circuit_breaker_trigger_and_lock(self):
@@ -171,9 +173,7 @@ class TestRiskAndCircuitBreaker(unittest.TestCase):
                 "fee_rate": 0.00075,
                 "slippage_rate": 0.0005
             },
-            "paths": {
-                "trade_ledger": "logs/test_ledger.csv"
-            }
+            "paths": self.get_test_paths()
         }
 
         mock_client = MagicMock()
@@ -191,10 +191,6 @@ class TestRiskAndCircuitBreaker(unittest.TestCase):
         self.assertAlmostEqual(pos["allocated_usdt"], 1000.0, places=2)
         self.assertTrue(pos["tp1_reached"])
         self.assertGreater(pos["stop_loss"], 80000.0, "Stop Loss was not ratcheted to Breakeven!")
-
-        # Clean up test ledger
-        if os.path.exists("logs/test_ledger.csv"):
-            os.remove("logs/test_ledger.csv")
 
     def test_runner_final_exit_at_tp2(self):
         """Verify runner remaining 50% exits at TP2 and marks trade as WIN."""
@@ -218,7 +214,7 @@ class TestRiskAndCircuitBreaker(unittest.TestCase):
         config = {
             "ai_model": {"partial_tp_ratio": 0.50, "breakeven_lock_enabled": True},
             "risk_management": {"fee_rate": 0.00075, "slippage_rate": 0.0005},
-            "paths": {"trade_ledger": "logs/test_ledger.csv"}
+            "paths": self.get_test_paths()
         }
 
         mock_client = MagicMock()
@@ -231,11 +227,8 @@ class TestRiskAndCircuitBreaker(unittest.TestCase):
         self.assertEqual(state["win_count"], 1)
         self.assertNotIn("BTC/USDT", state["open_positions"], "Position was not closed!")
 
-        if os.path.exists("logs/test_ledger.csv"):
-            os.remove("logs/test_ledger.csv")
 
-
-class TestBinanceMicrostructure(unittest.TestCase):
+class TestBinanceMicrostructure(BaseTestCase):
     """Stress tests for Area 2: Binance lot size, precision, and minNotional sanitization."""
 
     def test_sanitize_order_amount_rounding(self):
@@ -273,7 +266,7 @@ class TestBinanceMicrostructure(unittest.TestCase):
         self.assertIn("below Binance minimum notional", str(ctx.exception))
 
 
-class TestDiscordAndDigest(unittest.TestCase):
+class TestDiscordAndDigest(BaseTestCase):
     """Stress tests for Area 4: Discord embed generator and Daily Digest."""
 
     def test_send_discord_alert_unconfigured(self):
@@ -296,7 +289,8 @@ class TestDiscordAndDigest(unittest.TestCase):
             "risk_management": {"capital_usdt": 10000.0, "max_open_trades": 3},
             "trading_mode": "paper",
             "timeframe": "1h",
-            "discord": {"enabled": False, "webhook_url": ""}
+            "discord": {"enabled": False, "webhook_url": ""},
+            "paths": self.get_test_paths()
         }
         # When discord is disabled, it should report disabled gracefully
         ok, res = bot.send_daily_digest(state, config)
@@ -304,7 +298,7 @@ class TestDiscordAndDigest(unittest.TestCase):
         self.assertEqual(res, "Discord alerts disabled.")
 
 
-class TestBacktestEngine(unittest.TestCase):
+class TestBacktestEngine(BaseTestCase):
     """Stress tests for Backtesting engine."""
 
     def test_backtest_with_synthetic_model(self):
@@ -343,7 +337,8 @@ class TestBacktestEngine(unittest.TestCase):
                 "fee_rate": 0.00075,
                 "slippage_rate": 0.0005
             },
-            "mtf_confluence": {"enabled": False}
+            "mtf_confluence": {"enabled": False},
+            "paths": self.get_test_paths()
         }
 
         report = backtest.run_backtest(df, mock_bundle, config, symbol="TEST/USDT")
@@ -354,8 +349,7 @@ class TestBacktestEngine(unittest.TestCase):
 
     def test_corrupted_state_recovery(self):
         """Verify load_state gracefully recovers from corrupted or incomplete JSON state files."""
-        temp_state_file = "logs/test_corrupt_state.json"
-        os.makedirs("logs", exist_ok=True)
+        temp_state_file = os.path.join(self.test_dir, "test_corrupt_state.json")
         # Write corrupted garbage JSON
         with open(temp_state_file, "w") as f:
             f.write("{ invalid json content ::: 12345")
@@ -370,9 +364,6 @@ class TestBacktestEngine(unittest.TestCase):
             f.write("")
         recovered_state2 = bot.load_state(temp_state_file, initial_capital=8000.0)
         self.assertEqual(recovered_state2["balance_usdt"], 8000.0)
-
-        if os.path.exists(temp_state_file):
-            os.remove(temp_state_file)
 
     def test_live_execution_error_isolation(self):
         """Verify that live Binance order rejection does NOT corrupt bot state or deduct balance."""
@@ -390,7 +381,7 @@ class TestBacktestEngine(unittest.TestCase):
             "ai_model": {"confidence_threshold": 0.50, "tp1_atr_mult": 1.2, "tp2_atr_mult": 2.4, "sl_atr_mult": 1.4},
             "risk_management": {"capital_usdt": 1000.0, "risk_per_trade_pct": 2.0, "max_open_trades": 3, "fee_rate": 0.00075, "slippage_rate": 0.0005},
             "mtf_confluence": {"enabled": False},
-            "paths": {"trade_ledger": "logs/test_ledger.csv"}
+            "paths": self.get_test_paths()
         }
 
         # Mock client that raises exception on place_spot_order
@@ -460,7 +451,7 @@ class TestBacktestEngine(unittest.TestCase):
                 "slippage_rate": 0.0005,
                 "max_holding_hours": 48
             },
-            "paths": {"trade_ledger": "logs/test_ledger.csv"}
+            "paths": self.get_test_paths()
         }
 
         mock_client = MagicMock()
@@ -471,9 +462,6 @@ class TestBacktestEngine(unittest.TestCase):
         self.assertEqual(len(closed), 1)
         self.assertIn("MAX HOLDING TIME EXPIRED", closed[0]["reason"])
         self.assertNotIn("BTC/USDT", state["open_positions"])
-
-        if os.path.exists("logs/test_ledger.csv"):
-            os.remove("logs/test_ledger.csv")
 
     def test_mark_to_market_unrealized_pnl(self):
         """Verify live unrealized PnL is accurately updated on active positions."""
@@ -498,7 +486,7 @@ class TestBacktestEngine(unittest.TestCase):
         config = {
             "ai_model": {"partial_tp_ratio": 0.50, "breakeven_lock_enabled": True},
             "risk_management": {"fee_rate": 0.00075, "slippage_rate": 0.0005, "max_holding_hours": 48},
-            "paths": {"trade_ledger": "logs/test_ledger.csv"}
+            "paths": self.get_test_paths()
         }
 
         mock_client = MagicMock()
@@ -535,7 +523,7 @@ class TestBacktestEngine(unittest.TestCase):
             "ai_model": {"confidence_threshold": 0.60, "tp1_atr_mult": 1.2, "tp2_atr_mult": 2.4, "sl_atr_mult": 1.4},
             "risk_management": {"capital_usdt": 10000.0, "risk_per_trade_pct": 2.0, "max_open_trades": 3, "dynamic_alpha_sizing": True, "fee_rate": 0.00075, "slippage_rate": 0.0005},
             "mtf_confluence": {"enabled": False},
-            "paths": {"trade_ledger": "logs/test_ledger.csv"}
+            "paths": self.get_test_paths()
         }
         _, sig_60, _ = bot.scan_and_execute(mock_client, bundle_60, state_60, config_60)
 
@@ -552,9 +540,6 @@ class TestBacktestEngine(unittest.TestCase):
         self.assertEqual(len(sig_75), 1)
         # 75% setup must allocate larger dollar size than 60% setup!
         self.assertGreater(sig_75[0]["size_usdt"], sig_60[0]["size_usdt"])
-
-        if os.path.exists("logs/test_ledger.csv"):
-            os.remove("logs/test_ledger.csv")
 
 
 if __name__ == "__main__":

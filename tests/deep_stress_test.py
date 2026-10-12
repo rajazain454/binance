@@ -19,9 +19,10 @@ import features
 import bot
 import backtest
 from binance_client import BinanceClient, retry_on_network_error
+from tests.base import BaseTestCase
 
 
-class TestExtremeMathematicalEdgeCases(unittest.TestCase):
+class TestExtremeMathematicalEdgeCases(BaseTestCase):
     """Stress tests mathematical indicators against degenerate market data."""
 
     def test_zero_volume_handling(self):
@@ -120,7 +121,7 @@ class TestExtremeMathematicalEdgeCases(unittest.TestCase):
         self.assertIn("RSI", summary)
 
 
-class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
+class TestAlphaRankingAndExecutionEngine(BaseTestCase):
     """Stress tests Alpha Ranking and best-first trade allocation."""
 
     def test_alpha_ranking_selects_highest_conviction_first(self):
@@ -181,7 +182,7 @@ class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
                 "slippage_rate": 0.0005
             },
             "mtf_confluence": {"enabled": False},
-            "paths": {"trade_ledger": "logs/test_ledger_rank.csv"}
+            "paths": self.get_test_paths()
         }
 
         rows, new_signals, _ = bot.scan_and_execute(mock_client, mock_bundle, state, config)
@@ -191,9 +192,6 @@ class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
         # And that single trade MUST BE BNB/USDT (69% conviction), not ETH or SOL!
         self.assertEqual(new_signals[0]["symbol"], "BNB/USDT", f"Bot selected {new_signals[0]['symbol']} instead of best (BNB/USDT)!")
         self.assertIn("BNB/USDT", state["open_positions"])
-
-        if os.path.exists("logs/test_ledger_rank.csv"):
-            os.remove("logs/test_ledger_rank.csv")
 
     def test_circuit_breaker_trips_on_daily_drawdown(self):
         """Verify circuit breaker trips and blocks buys when balance drops 8% below daily peak."""
@@ -217,7 +215,7 @@ class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
             "timeframe": "1h",
             "ai_model": {"confidence_threshold": 0.50},
             "mtf_confluence": {"enabled": False},
-            "paths": {"trade_ledger": "logs/test_ledger_cb.csv"}
+            "paths": self.get_test_paths()
         }
 
         # Check circuit breaker function directly
@@ -239,9 +237,6 @@ class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
         rows, new_signals, _ = bot.scan_and_execute(mock_client, mock_bundle, state, config)
         self.assertEqual(len(new_signals), 0, "Bot placed orders while circuit breaker was locked!")
         self.assertEqual(rows[0]["status"], "CIRCUIT PAUSE")
-
-        if os.path.exists("logs/test_ledger_cb.csv"):
-            os.remove("logs/test_ledger_cb.csv")
 
     def test_overheated_funding_rate_blocks_long_entry(self):
         """Verify overheated positive funding (> +0.03%) blocks buying over-leveraged longs."""
@@ -271,18 +266,15 @@ class TestAlphaRankingAndExecutionEngine(unittest.TestCase):
             "ai_model": {"confidence_threshold": 0.60, "tp1_atr_mult": 1.2, "tp2_atr_mult": 2.4, "sl_atr_mult": 1.4},
             "risk_management": {"capital_usdt": 1000.0, "risk_per_trade_pct": 2.0, "max_open_trades": 1, "fee_rate": 0.00075, "slippage_rate": 0.0005},
             "mtf_confluence": {"enabled": False},
-            "paths": {"trade_ledger": "logs/test_ledger_fund.csv"}
+            "paths": self.get_test_paths()
         }
 
         rows, new_signals, _ = bot.scan_and_execute(mock_client, mock_bundle, state, config)
         self.assertEqual(len(new_signals), 0, "Bot bought into overheated funding rate!")
         self.assertEqual(rows[0]["status"], "FUNDING HOT")
 
-        if os.path.exists("logs/test_ledger_fund.csv"):
-            os.remove("logs/test_ledger_fund.csv")
 
-
-class TestMicrostructureSanitization(unittest.TestCase):
+class TestMicrostructureSanitization(BaseTestCase):
     """Stress tests lot size, tick size, and minimum notional rounding."""
 
     def test_amount_rounding_down_to_step_size(self):
@@ -305,7 +297,7 @@ class TestMicrostructureSanitization(unittest.TestCase):
         self.assertEqual(clean_price, 80000.00)
 
 
-class TestCrossAssetCorrelationFilter(unittest.TestCase):
+class TestCrossAssetCorrelationFilter(BaseTestCase):
     """Stress tests for Cross-Asset 30-Day Pearson Correlation Filter."""
 
     def test_correlation_filter_blocks_correlated_asset_and_picks_diversified(self):
@@ -339,7 +331,7 @@ class TestCrossAssetCorrelationFilter(unittest.TestCase):
             "risk_management": {"capital_usdt": 2000.0, "risk_per_trade_pct": 2.0, "max_open_trades": 2, "fee_rate": 0.00075, "slippage_rate": 0.0005},
             "mtf_confluence": {"enabled": False},
             "correlation_filter": {"enabled": True, "max_correlation": 0.75},
-            "paths": {"trade_ledger": "logs/test_ledger_corr.csv", "data_dir": "data"}
+            "paths": self.get_test_paths()
         }
 
         def mock_corr(s1, s2, data_dir="data"):
@@ -361,9 +353,6 @@ class TestCrossAssetCorrelationFilter(unittest.TestCase):
         self.assertEqual(sol_row["status"], "BUY TRIGGER", "SOL was not executed despite low correlation with open BTC!")
         self.assertEqual(len(new_signals), 1)
         self.assertEqual(new_signals[0]["symbol"], "SOL/USDT")
-
-        if os.path.exists("logs/test_ledger_corr.csv"):
-            os.remove("logs/test_ledger_corr.csv")
 
     def test_compute_asset_correlation_calculation(self):
         """Verify rolling Pearson correlation calculation on generated CSV files."""
@@ -391,7 +380,7 @@ class TestCrossAssetCorrelationFilter(unittest.TestCase):
             self.assertAlmostEqual(corr_neg, -1.0, places=2)
 
 
-class TestChandelierDynamicTrailingStop(unittest.TestCase):
+class TestChandelierDynamicTrailingStop(BaseTestCase):
     """Stress tests for Chandelier Volatility Dynamic Trailing Stop for runners."""
 
     def test_chandelier_trailing_stop_ratchets_and_exits(self):
@@ -424,7 +413,7 @@ class TestChandelierDynamicTrailingStop(unittest.TestCase):
             },
             "ai_model": {"partial_tp_ratio": 0.50, "breakeven_lock_enabled": True},
             "risk_management": {"fee_rate": 0.00075, "slippage_rate": 0.0005},
-            "paths": {"trade_ledger": "logs/test_ledger_trail.csv"}
+            "paths": self.get_test_paths()
         }
 
         mock_client = MagicMock()
@@ -453,11 +442,8 @@ class TestChandelierDynamicTrailingStop(unittest.TestCase):
         self.assertGreater(exit_trade["net_pnl"], 0.0)
         self.assertNotIn("SOL/USDT", state["open_positions"])
 
-        if os.path.exists("logs/test_ledger_trail.csv"):
-            os.remove("logs/test_ledger_trail.csv")
 
-
-class TestStackingEnsembleModel(unittest.TestCase):
+class TestStackingEnsembleModel(BaseTestCase):
     """Stress tests for Multi-Model Stacking Ensemble (LightGBM + HistGradientBoosting)."""
 
     def test_ensemble_train_and_predict(self):

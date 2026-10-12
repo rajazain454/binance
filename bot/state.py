@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import uuid
 from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger("quantlab")
@@ -10,6 +11,11 @@ logger = logging.getLogger("quantlab")
 
 def load_state(state_path="bot_state.json", initial_capital=10000.0):
     """Loads bot state JSON file or initializes a clean state dictionary."""
+    if isinstance(state_path, dict):
+        config = state_path
+        initial_capital = config.get("risk_management", {}).get("capital_usdt", initial_capital)
+        state_path = config.get("paths", {}).get("state_file", "bot_state.json")
+
     if os.path.exists(state_path):
         try:
             with open(state_path, "r", encoding="utf-8") as f:
@@ -25,6 +31,10 @@ def load_state(state_path="bot_state.json", initial_capital=10000.0):
                             st["circuit_breaker_until"] = None
                         if "open_positions" not in st or not isinstance(st["open_positions"], dict):
                             st["open_positions"] = {}
+                        else:
+                            for sym, pos in st["open_positions"].items():
+                                if isinstance(pos, dict) and "position_id" not in pos:
+                                    pos["position_id"] = str(uuid.uuid4())
                         if "loss_cooldowns" not in st or not isinstance(st["loss_cooldowns"], dict):
                             st["loss_cooldowns"] = {}
                         else:
@@ -60,6 +70,8 @@ def load_state(state_path="bot_state.json", initial_capital=10000.0):
 
 def save_state(state, state_path="bot_state.json"):
     """Atomic write to prevent state corruption on sudden termination."""
+    if isinstance(state_path, dict):
+        state_path = state_path.get("paths", {}).get("state_file", "bot_state.json")
     tmp_path = f"{state_path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)

@@ -28,12 +28,15 @@ from bot.scanner import (
     scan_and_execute,
 )
 from bot.main import execute_cycle, main
+from bot.stats import compute_ledger_stats, print_stats_report
 
 __all__ = [
     "TRADE_CSV_COLUMNS",
     "load_config",
     "setup_logger",
     "log_trade",
+    "compute_ledger_stats",
+    "print_stats_report",
     "send_discord_alert",
     "send_daily_digest",
     "print_dashboard",

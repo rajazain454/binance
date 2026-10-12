@@ -18,9 +18,10 @@ import pandas as pd
 
 import bot
 import features
+from tests.base import BaseTestCase
 
 
-class TestExtremeLevelSuite(unittest.TestCase):
+class TestExtremeLevelSuite(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         # 150-bar realistic synthetic price series
@@ -150,7 +151,7 @@ class TestExtremeLevelSuite(unittest.TestCase):
         config["mtf_confluence"] = {"enabled": False}
         config["correlation_filter"] = {"enabled": False}
         config["ai_model"]["max_rsi"] = 100.0
-        config["paths"] = {"trade_ledger": "logs/test_extreme_ledger.csv"}
+        self.override_config_paths(config)
 
         # Mock client returning valid candles
         mock_client = MagicMock()
@@ -201,9 +202,6 @@ class TestExtremeLevelSuite(unittest.TestCase):
         self.assertEqual(len(new_signals2), 0, "4th trade must be rejected because max 3 slots are full!")
         self.assertEqual(len(state["open_positions"]), 3)
 
-        if os.path.exists("logs/test_extreme_ledger.csv"):
-            os.remove("logs/test_extreme_ledger.csv")
-
     # =========================================================================
     # 5. Multi-Position Mark-to-Market Circuit Breaker Under Stress
     # =========================================================================
@@ -243,7 +241,7 @@ class TestExtremeLevelSuite(unittest.TestCase):
             "trading_mode": "paper",
             "timeframe": "1h",
             "discord": {"enabled": True, "webhook_url": "https://discord.com/api/webhooks/mock/test"},
-            "paths": {"state_file": "logs/test_state_digest.json"}
+            "paths": self.get_test_paths()
         }
         state = {
             "balance_usdt": 20.0,

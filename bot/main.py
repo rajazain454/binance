@@ -18,7 +18,7 @@ from bot.state import load_state, reconcile_positions, save_state
 from models import check_model_staleness
 from utils import load_config, setup_logger
 
-logger = setup_logger("logs/bot.log")
+logger = logging.getLogger("quantlab")
 
 
 def execute_cycle(client, model_bundle, config):
@@ -159,8 +159,10 @@ def execute_cycle(client, model_bundle, config):
                     cand_lines.append(f"• **{c['symbol']}**: AI Conviction `{c['prob_win']*100:.1f}%` | Status: `{c['status']}` | Setup: *{setups_display}*")
                 cand_str = "\n".join(cand_lines) if cand_lines else "Scanning..."
 
+                regime_display = state.get("macro_regime", "MACRO REGIME NORMAL")
                 fields = [
                     {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
+                    {"name": "🛡️ Macro Market Regime", "value": f"`{regime_display}`", "inline": False},
                     {"name": "📊 Active Positions & Targets", "value": active_str, "inline": False},
                     {"name": "🎯 Top Market Radar Scans", "value": cand_str, "inline": False},
                     {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking candle close & volatility every cycle", "inline": False},
@@ -187,6 +189,8 @@ def main():
 
     args = parser.parse_args()
     config = load_config(args.config)
+    log_file = os.path.join(config.get("paths", {}).get("logs_dir", "logs"), "bot.log")
+    setup_logger(log_file)
 
     if args.digest:
         state = load_state(config["paths"]["state_file"], initial_capital=config["risk_management"]["capital_usdt"])

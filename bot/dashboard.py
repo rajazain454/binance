@@ -24,6 +24,9 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
 
     print(f"  Equity (MtM): ${total_equity:,.2f} USDT  |  Free Cash: ${balance:,.2f}  |  Active Alloc: ${total_alloc:,.2f}  |  Unrealized: ${total_unrealized:+,.2f}")
     print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Circuit Breaker: {cb_status}  |  Total Trades: {total_cnt}  |  Win Rate: {wr:.1f}%")
+    macro_regime = state.get("macro_regime")
+    if macro_regime:
+        print(f"  Macro Regime: {macro_regime}")
     print("-" * 108)
 
     # Market Radar Table with Strategy Setups
@@ -55,20 +58,24 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
             print(f"  [HOLD] {sym:<9} Entry: ${entry_p:<9.4f} | Now: ${curr_p:<9.4f} | Unr: ${unr_pnl:+7.2f} ({unr_pct:+6.2f}%) | "
                   f"Stop: ${p['stop_loss']:<9.4f} | TP1: {tp1_status:<17} | TP2: ${tp2_val:<9.4f}")
 
-    # Closed signals
+    # Closed signals & events
     if closed_signals:
         print("\n" + "-" * 88)
-        print("  RECENT CLOSED TRADES")
+        print("  RECENT CLOSED TRADES & POSITION EVENTS")
         print("-" * 88)
         for cs in closed_signals:
             action = cs.get("action", "")
             if action == "BREAKEVEN LOCK (SMALL ACCOUNT)":
                 tag = "[🛡️ BE-LOCK]"
-            elif cs["outcome"] == "WIN":
+            elif "PARTIAL" in action:
+                tag = "[⚡ PARTIAL TP1]"
+            elif cs.get("outcome") == "WIN":
                 tag = "[+WIN]"
             else:
                 tag = "[-LOSS]"
-            print(f"  {tag} {cs['symbol']} Net PnL: ${cs['net_pnl']:+,.2f} ({cs['pnl_pct']:+.2f}%) | {cs['reason']}")
+            pid = cs.get("position_id", "")
+            pid_str = f" [{pid[:8]}]" if pid else ""
+            print(f"  {tag}{pid_str} {cs['symbol']} Net PnL: ${cs['net_pnl']:+,.2f} ({cs['pnl_pct']:+.2f}%) | {cs['reason']}")
 
     # New entries
     if new_signals:

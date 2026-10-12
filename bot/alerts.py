@@ -84,6 +84,19 @@ def send_daily_digest(state, config):
         {"name": "Timeframe", "value": config.get("timeframe", "1h"), "inline": True},
     ]
 
+    ledger_path = config.get("paths", {}).get("trade_ledger", "logs/trade_history.csv")
+    if os.path.exists(ledger_path) and os.path.getsize(ledger_path) > 0:
+        try:
+            from bot.stats import compute_ledger_stats
+            l_stats = compute_ledger_stats(ledger_path)
+            if l_stats and l_stats.get("closed_positions", 0) > 0:
+                pf_display = f"{l_stats['profit_factor']:.2f}" if isinstance(l_stats['profit_factor'], (int, float)) else str(l_stats['profit_factor'])
+                fields.append({"name": "Trade Expectancy", "value": f"**${l_stats['expectancy']:+,.2f} USDT**", "inline": True})
+                fields.append({"name": "Profit Factor", "value": f"**{pf_display}**", "inline": True})
+                fields.append({"name": "BE Win Rate", "value": f"**{l_stats['break_even_win_rate_pct']:.1f}%**", "inline": True})
+        except Exception:
+            pass
+
     from bot.positions import render_trade_progress
 
     if open_pos:

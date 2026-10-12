@@ -8,6 +8,7 @@ logger = logging.getLogger("quantlab")
 
 TRADE_CSV_COLUMNS = [
     "timestamp",
+    "position_id",
     "symbol",
     "action",
     "entry_price",
@@ -31,9 +32,25 @@ def load_config(config_path="config.json"):
         return json.load(f)
 
 
+def close_logger_handlers(logger_name="quantlab"):
+    """Closes and removes all FileHandlers from the specified logger."""
+    logger_inst = logging.getLogger(logger_name)
+    for h in list(logger_inst.handlers):
+        if isinstance(h, logging.FileHandler):
+            try:
+                h.close()
+            except Exception:
+                pass
+            logger_inst.removeHandler(h)
+
+
 def setup_logger(log_file="logs/quantlab.log", level=logging.INFO):
-    """Configures root/quantlab logger with both console and rotating file handlers."""
-    os.makedirs(os.path.dirname(log_file) if os.path.dirname(log_file) else ".", exist_ok=True)
+    """Configures root/quantlab logger with console and file handlers.
+
+    Accepts a log_file path (or None). If a FileHandler was previously attached,
+    it is closed and replaced so tests or runtime components can redirect output
+    to a temporary or custom log file without leaking handlers.
+    """
     formatter = logging.Formatter(
         "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -41,11 +58,23 @@ def setup_logger(log_file="logs/quantlab.log", level=logging.INFO):
     logger_inst = logging.getLogger("quantlab")
     logger_inst.setLevel(level)
 
-    if not logger_inst.handlers:
+    # Ensure a console StreamHandler is attached
+    has_stream = any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in logger_inst.handlers
+    )
+    if not has_stream:
         ch = logging.StreamHandler()
         ch.setFormatter(formatter)
         logger_inst.addHandler(ch)
 
+    # Close and remove existing FileHandlers to switch log files cleanly
+    close_logger_handlers("quantlab")
+
+    if log_file:
+        dir_name = os.path.dirname(log_file)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
         try:
             fh = logging.FileHandler(log_file, encoding="utf-8")
             fh.setFormatter(formatter)

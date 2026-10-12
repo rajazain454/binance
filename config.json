@@ -44,6 +44,13 @@
     "partial_tp_ratio": 0.50,
     "breakeven_lock_enabled": true
   },
+  "macro_regime_filter": {
+    "enabled": true,
+    "benchmark_symbol": "BTC/USDT",
+    "sma_period": 200,
+    "hysteresis_pct": 0.01,
+    "block_new_entries_in_bear": true
+  },
   "mtf_confluence": {
     "enabled": true,
     "macro_timeframe": "4h",

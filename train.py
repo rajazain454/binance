@@ -25,8 +25,9 @@ def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data",
     """Fetches Binance data or loads 365d cache, computes features and labels for each symbol."""
     ai_cfg = ai_cfg or {}
     horizon = ai_cfg.get("horizon_bars", 12)
-    tp_mult = ai_cfg.get("tp_atr_mult", 2.2)
-    sl_mult = ai_cfg.get("sl_atr_mult", 1.4)
+    # Read tp_atr_mult under tp1_atr_mult (as used by live exit logic)
+    tp_mult = ai_cfg.get("tp1_atr_mult", ai_cfg.get("tp_atr_mult", 1.5))
+    sl_mult = ai_cfg.get("sl_atr_mult", 1.2)
 
     all_X = []
     all_y = []
@@ -77,7 +78,7 @@ def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data",
 
         X_sym = feat_df.loc[valid_idx]
         y_sym = labels.loc[valid_idx]
-        ret_sym = fwd_ret.loc[valid_idx]
+        ret_sym = pd.DataFrame({"return": fwd_ret.loc[valid_idx], "symbol": sym}, index=valid_idx)
 
         all_X.append(X_sym)
         all_y.append(y_sym)
@@ -101,66 +102,215 @@ def prepare_dataset(client, symbols, tf, days=365, ai_cfg=None, data_dir="data",
     return X, y, fwd_returns, symbol_frames
 
 
+def simulate_test_trades(X_test, y_test, ret_test, test_probs, conf_thresh, cost_rate, max_open_trades, horizon_bars):
+    """Simulates realistic chronological execution on the test slice:
+    - Enforces max_open_trades across portfolio
+    - Enforces one-position-at-a-time per symbol
+    - Position held up to horizon_bars
+    - Subtracts 2 * cost_rate (entry fee+slippage + exit fee+slippage)
+    """
+    if len(X_test) == 0:
+        return {
+            "n_trades": 0, "win_rate": 0.0, "profit_factor": 0.0,
+            "avg_return": 0.0, "total_pnl": 0.0, "trades": []
+        }
+
+    if isinstance(ret_test, pd.DataFrame):
+        rets = ret_test["return"].values
+        syms = ret_test["symbol"].values if "symbol" in ret_test.columns else np.array(["ASSET"] * len(ret_test))
+    else:
+        rets = ret_test.values if hasattr(ret_test, "values") else np.asarray(ret_test)
+        syms = np.array(["ASSET"] * len(ret_test))
+
+    labels = y_test.values if hasattr(y_test, "values") else np.asarray(y_test)
+    probs = np.asarray(test_probs)
+    timestamps = list(X_test.index)
+
+    open_positions = {}  # {symbol: exit_timestamp}
+    executed_trades = []
+
+    from collections import defaultdict
+    ts_candidates = defaultdict(list)
+    for idx, ts in enumerate(timestamps):
+        prob = probs[idx]
+        if prob >= conf_thresh:
+            ts_candidates[ts].append({
+                "symbol": syms[idx],
+                "prob": prob,
+                "label": labels[idx],
+                "ret": rets[idx],
+                "index": idx
+            })
+
+    unique_ts = list(dict.fromkeys(timestamps))
+
+    for current_ts in unique_ts:
+        # 1. Close expired positions
+        expired = [s for s, exit_ts in open_positions.items() if current_ts >= exit_ts]
+        for s in expired:
+            del open_positions[s]
+
+        # 2. Evaluate candidate signals
+        candidates = ts_candidates.get(current_ts, [])
+        if candidates and len(open_positions) < max_open_trades:
+            # Highest conviction first
+            candidates.sort(key=lambda c: c["prob"], reverse=True)
+            for cand in candidates:
+                sym = cand["symbol"]
+                if sym not in open_positions and len(open_positions) < max_open_trades:
+                    if isinstance(current_ts, pd.Timestamp):
+                        exit_ts = current_ts + pd.Timedelta(hours=horizon_bars)
+                    else:
+                        exit_ts = current_ts + horizon_bars
+                    open_positions[sym] = exit_ts
+
+                    net_ret = float(cand["ret"]) - (2.0 * cost_rate)
+                    is_win = bool(net_ret > 0.0)
+                    executed_trades.append({
+                        "timestamp": current_ts,
+                        "symbol": sym,
+                        "prob": cand["prob"],
+                        "label": cand["label"],
+                        "gross_ret": float(cand["ret"]),
+                        "net_ret": net_ret,
+                        "is_win": is_win
+                    })
+
+    n_trades = len(executed_trades)
+    if n_trades > 0:
+        net_returns = np.array([t["net_ret"] for t in executed_trades])
+        win_count = sum(t["is_win"] for t in executed_trades)
+        win_rate = win_count / n_trades
+        avg_ret = float(np.mean(net_returns))
+        total_pnl = float(np.sum(net_returns))
+
+        profit_trades = net_returns[net_returns > 0]
+        loss_trades = net_returns[net_returns <= 0]
+        gross_profit = float(np.sum(profit_trades)) if len(profit_trades) > 0 else 0.0
+        gross_loss = float(np.abs(np.sum(loss_trades))) if len(loss_trades) > 0 else 1e-9
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
+    else:
+        win_rate = 0.0
+        avg_ret = 0.0
+        total_pnl = 0.0
+        profit_factor = 0.0
+
+    return {
+        "n_trades": n_trades,
+        "win_rate": win_rate,
+        "profit_factor": profit_factor,
+        "avg_return": avg_ret,
+        "total_pnl": total_pnl,
+        "trades": executed_trades
+    }
+
+
 def train_model(X, y, fwd_returns, config):
-    """Trains an optimized Gradient Boosting ensemble with exponential time-decay weighting."""
+    """Trains an optimized Gradient Boosting ensemble with exponential time-decay weighting,
+    a 3-way chronological split (60% Train, 20% Calibration, 20% Test) with purge gaps,
+    and out-of-sample portfolio simulation.
+    """
     feature_names = list(X.columns)
     ai_cfg = config.get("ai_model", {})
     conf_thresh = ai_cfg.get("confidence_threshold", 0.60)
     cost_rate = config["risk_management"]["fee_rate"] + config["risk_management"]["slippage_rate"]
     horizon = ai_cfg.get("horizon_bars", 12)
+    tp_mult = ai_cfg.get("tp1_atr_mult", ai_cfg.get("tp_atr_mult", 1.5))
+    sl_mult = ai_cfg.get("sl_atr_mult", 1.2)
+    max_open_trades = config.get("risk_management", {}).get("max_open_trades", 3)
 
-    # Cross-Sectional Chronological Train-Test Split with Purge Barrier (De Prado methodology)
-    if isinstance(X.index, pd.DatetimeIndex) and len(X.index.unique()) > 10:
+    # Cross-Sectional Chronological 3-Way Split with Purge Gaps of horizon_bars
+    # 60% Train, 20% Calibration, 20% Test
+    if isinstance(X.index, pd.DatetimeIndex) and len(X.index.unique()) >= 30:
         unique_dates = X.index.unique().sort_values()
-        split_date_idx = int(len(unique_dates) * 0.80)
-        split_date = unique_dates[split_date_idx]
-        purge_barrier = split_date - pd.Timedelta(hours=horizon)
+        n_unique = len(unique_dates)
 
-        train_mask = (X.index < purge_barrier)
-        test_mask = (X.index >= split_date)
+        train_end_idx = int(n_unique * 0.60)
+        cal_end_idx = int(n_unique * 0.80)
 
-        X_train, X_test = X.loc[train_mask], X.loc[test_mask]
-        y_train, y_test = y.loc[train_mask], y.loc[test_mask]
-        ret_test = fwd_returns.loc[test_mask]
+        idx_train_end = max(1, train_end_idx)
+        idx_cal_start = min(idx_train_end + horizon, cal_end_idx)
+        idx_cal_end = max(idx_cal_start + 1, cal_end_idx)
+        idx_test_start = min(idx_cal_end + horizon, n_unique - 1)
+
+        train_start_date = unique_dates[0]
+        train_end_date = unique_dates[idx_train_end - 1]
+        cal_start_date = unique_dates[idx_cal_start]
+        cal_end_date = unique_dates[idx_cal_end - 1]
+        test_start_date = unique_dates[idx_test_start]
+        test_end_date = unique_dates[-1]
+
+        train_mask = (X.index >= train_start_date) & (X.index <= train_end_date)
+        cal_mask = (X.index >= cal_start_date) & (X.index <= cal_end_date)
+        test_mask = (X.index >= test_start_date) & (X.index <= test_end_date)
     else:
-        split_idx = int(len(X) * 0.80)
-        X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
-        y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
-        ret_test = fwd_returns.iloc[split_idx:]
+        n = len(X)
+        i_train_end = max(1, int(n * 0.60))
+        i_cal_start = min(i_train_end + horizon, int(n * 0.80))
+        i_cal_end = max(i_cal_start + 1, int(n * 0.80))
+        i_test_start = min(i_cal_end + horizon, n)
+
+        train_mask = np.zeros(n, dtype=bool)
+        train_mask[:i_train_end] = True
+        cal_mask = np.zeros(n, dtype=bool)
+        cal_mask[i_cal_start:i_cal_end] = True
+        test_mask = np.zeros(n, dtype=bool)
+        test_mask[i_test_start:] = True
+
+        train_start_date = str(X.index[0]) if len(X) else "N/A"
+        train_end_date = str(X.index[i_train_end - 1]) if i_train_end > 0 else "N/A"
+        cal_start_date = str(X.index[i_cal_start]) if i_cal_start < n else "N/A"
+        cal_end_date = str(X.index[i_cal_end - 1]) if i_cal_end > 0 else "N/A"
+        test_start_date = str(X.index[i_test_start]) if i_test_start < n else "N/A"
+        test_end_date = str(X.index[-1]) if len(X) else "N/A"
+
+    split_dates = {
+        "train_start": str(train_start_date),
+        "train_end": str(train_end_date),
+        "calibration_start": str(cal_start_date),
+        "calibration_end": str(cal_end_date),
+        "test_start": str(test_start_date),
+        "test_end": str(test_end_date),
+    }
+    calibration_cutoff_date = str(cal_end_date)
+
+    X_train, y_train = X.loc[train_mask], y.loc[train_mask]
+    X_cal, y_cal = X.loc[cal_mask], y.loc[cal_mask]
+    X_test, y_test = X.loc[test_mask], y.loc[test_mask]
+    ret_test = fwd_returns.loc[test_mask]
 
     print("\n" + "=" * 75)
-    print("  TRAINING BINANCE AI MODEL (HistGradientBoostingClassifier with Quant Setups)")
+    print("  TRAINING BINANCE AI MODEL (HistGradientBoosting + LightGBM Ensemble)")
     print("=" * 75)
-    print(f"  Total Clean Samples: {len(X):,}  |  Train: {len(X_train):,}  |  Out-of-Sample Test: {len(X_test):,}")
+    print(f"  Total Clean Samples: {len(X):,}  |  Train: {len(X_train):,}  |  Calibration: {len(X_cal):,}  |  Test: {len(X_test):,}")
     print(f"  Mathematical Alpha Features: {len(feature_names)} indicators")
     print(f"  Baseline Setup Win Rate: {y.mean():.1%}")
 
-    # Compute Exponential Time-Decay Sample Weights (half-life weighting)
+    # Compute Exponential Time-Decay Sample Weights (half-life weighting on Train slice)
     n_train = len(X_train)
     half_life_samples = max(1000, n_train // 4)
     decay_rate = np.log(2.0) / half_life_samples
     time_weights = np.exp(-decay_rate * (n_train - 1 - np.arange(n_train)))
     time_weights = time_weights / time_weights.mean()
 
-    # Model 1: Scikit-Learn Histogram Gradient Boosting (depth-wise regularized)
+    # Model 1: Scikit-Learn Histogram Gradient Boosting with fixed max_iter (no random validation subsample)
     hgb_model = HistGradientBoostingClassifier(
-        max_iter=250,
+        max_iter=150,
         learning_rate=0.03,
         max_leaf_nodes=40,
         min_samples_leaf=30,
         l2_regularization=3.0,
-        early_stopping=True,
-        n_iter_no_change=15,
+        early_stopping=False,
         class_weight="balanced",
         random_state=42
     )
-    print("  Fitting Model 1: HistGradientBoostingClassifier...")
+    print("  Fitting Model 1: HistGradientBoostingClassifier (Train slice)...")
     hgb_model.fit(X_train, y_train, sample_weight=time_weights)
 
     # Model 2: LightGBM (leaf-wise gradient boosting)
     import lightgbm as lgb
     lgb_model = lgb.LGBMClassifier(
-        n_estimators=250,
+        n_estimators=150,
         learning_rate=0.03,
         num_leaves=35,
         min_child_samples=30,
@@ -169,65 +319,78 @@ def train_model(X, y, fwd_returns, config):
         random_state=42,
         verbose=-1
     )
-    print("  Fitting Model 2: LightGBM Classifier...")
+    print("  Fitting Model 2: LightGBM Classifier (Train slice)...")
     lgb_model.fit(X_train, y_train, sample_weight=time_weights)
 
-    # Combine into Stacking Ensemble with LogisticRegression Meta-Learner
+    # Combine into Stacking Ensemble; fit meta-learner ONLY on CALIBRATION slice
     from sklearn.linear_model import LogisticRegression
-    from models import StackingEnsembleModel
+    from models import StackingEnsembleModel, CalibratedEnsemble
 
     meta_clf = LogisticRegression(C=1.0, random_state=42)
     raw_ensemble = StackingEnsembleModel(
         hgb_model, lgb_model, weights=(0.50, 0.50), meta_learner=meta_clf
     )
-    raw_ensemble.fit(X_train, y_train)
+    print("  Fitting Meta-Learner (Calibration slice)...")
+    raw_ensemble.fit(X_cal, y_cal)
 
-    # Probability calibration via isotonic regression on held-out test split
-    # This ensures predict_proba outputs reflect actual empirical win rates
-    print("  Calibrating probabilities (Isotonic Regression)...")
-    from models import CalibratedEnsemble
+    # Probability calibration via isotonic regression ONLY on the CALIBRATION slice
+    print("  Calibrating probabilities via Isotonic Regression (Calibration slice)...")
     calibrated_model = CalibratedEnsemble(raw_ensemble)
-    calibrated_model.fit(X_test, y_test)
+    calibrated_model.fit(X_cal, y_cal)
     model = calibrated_model
+
+    # Report ALL metrics ONLY on the untouched TEST slice
     test_probs = model.predict_proba(X_test)[:, 1]
-    auc_score = roc_auc_score(y_test, test_probs)
-
-    # Filter by model confidence threshold
-    high_conf_mask = test_probs >= conf_thresh
-    n_high_conf = int(high_conf_mask.sum())
-
-    if n_high_conf > 0:
-        high_conf_wins = int(y_test[high_conf_mask].sum())
-        high_conf_win_rate = high_conf_wins / n_high_conf
-        high_conf_returns = ret_test[high_conf_mask] - (cost_rate * 2)  # Entry + Exit friction
-        avg_ret_per_trade = float(high_conf_returns.mean())
-        total_pnl = float(high_conf_returns.sum())
-        profit_trades = high_conf_returns[high_conf_returns > 0]
-        loss_trades = high_conf_returns[high_conf_returns <= 0]
-        gross_profit = float(profit_trades.sum()) if len(profit_trades) else 0.0
-        gross_loss = float(abs(loss_trades.sum())) if len(loss_trades) else 1e-9
-        profit_factor = gross_profit / gross_loss
+    if len(np.unique(y_test)) > 1:
+        auc_score = float(roc_auc_score(y_test, test_probs))
     else:
-        high_conf_win_rate = 0.0
-        avg_ret_per_trade = 0.0
-        total_pnl = 0.0
-        profit_factor = 0.0
+        auc_score = 0.50
+
+    # Break-even probability from label payoff:
+    # p_be = (sl_mult*atr% + cost) / ((tp_mult+sl_mult)*atr% ), using median atr_ratio on the train set
+    if "atr_ratio" in X_train.columns:
+        median_atr_pct = float(X_train["atr_ratio"].median())
+    else:
+        median_atr_pct = 0.02
+    median_atr_pct = max(1e-5, median_atr_pct)
+
+    cost = 2.0 * cost_rate
+    denom = (tp_mult + sl_mult) * median_atr_pct
+    numer = (sl_mult * median_atr_pct) + cost
+    p_be = float(numer / denom) if denom > 0 else 0.50
+
+    # Realistic portfolio execution simulation on test slice
+    sim_results = simulate_test_trades(
+        X_test=X_test,
+        y_test=y_test,
+        ret_test=ret_test,
+        test_probs=test_probs,
+        conf_thresh=conf_thresh,
+        cost_rate=cost_rate,
+        max_open_trades=max_open_trades,
+        horizon_bars=horizon
+    )
+
+    tradeable = bool(auc_score >= 0.54)
+    pf_str = f"{sim_results['profit_factor']:.2f}" if sim_results['profit_factor'] != float("inf") else "Inf"
 
     print("-" * 75)
-    print("  OUT-OF-SAMPLE TEST RESULTS (Unseen Forward 20% Data)")
+    print("  OUT-OF-SAMPLE TEST RESULTS (Untouched Test Slice)")
     print("-" * 75)
     print(f"  ROC-AUC Score:                 {auc_score:.3f}")
     print(f"  Confidence Threshold:          {conf_thresh:.0%}")
-    print(f"  High-Conviction Trade Signals: {n_high_conf} trades")
-    print(f"  High-Conviction Win Rate:      {high_conf_win_rate:.1%}")
-    print(f"  Profit Factor (after fees):    {profit_factor:.2f}")
-    print(f"  Avg Return per Trade:          {avg_ret_per_trade:+.2%}")
-    print(f"  Cumulative Sample PnL:         {total_pnl:+.1%}")
+    print(f"  Break-Even Probability (p_be): {p_be:.1%}")
+    print(f"  Simulated Executed Trades:     {sim_results['n_trades']} trades (max_open={max_open_trades})")
+    print(f"  Simulated Win Rate:            {sim_results['win_rate']:.1%}")
+    print(f"  Profit Factor (after fees):    {pf_str}")
+    print(f"  Avg Return per Trade:          {sim_results['avg_return']:+.2%}")
+    print(f"  Simulated Portfolio PnL:       {sim_results['total_pnl']:+.1%}")
+    print(f"  Tradeable Status:              {'ACTIVE' if tradeable else 'NON-TRADEABLE (AUC < 0.54)'}")
 
     # Top Feature Importance
     try:
         from sklearn.inspection import permutation_importance
-        perm = permutation_importance(model, X_test, y_test, n_repeats=3, random_state=42)
+        perm = permutation_importance(model, X_test, y_test, scoring="roc_auc", n_repeats=3, random_state=42)
         top_feats = pd.Series(perm.importances_mean, index=feature_names).nlargest(8)
         print("\n  Top Mathematical Alpha Indicators:")
         for rank, (fname, fval) in enumerate(top_feats.items(), 1):
@@ -254,15 +417,20 @@ def train_model(X, y, fwd_returns, config):
         "confidence_threshold": conf_thresh,
         "timeframe": config["timeframe"],
         "symbols": config["symbols"],
-        "version": "2.0.0",
+        "version": "2.1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "tradeable": tradeable,
+        "split_dates": split_dates,
+        "calibration_cutoff_date": calibration_cutoff_date,
         "feature_stats": feature_stats,
         "metrics": {
             "auc": round(auc_score, 4),
-            "win_rate": round(high_conf_win_rate, 4),
-            "profit_factor": round(profit_factor, 2),
-            "avg_return": round(avg_ret_per_trade, 4),
-            "n_test_trades": n_high_conf
+            "win_rate": round(sim_results["win_rate"], 4),
+            "profit_factor": round(sim_results["profit_factor"], 2) if sim_results["profit_factor"] != float("inf") else "Inf",
+            "avg_return": round(sim_results["avg_return"], 4),
+            "n_test_trades": sim_results["n_trades"],
+            "simulated_pnl": round(sim_results["total_pnl"], 4),
+            "breakeven_prob": round(p_be, 4),
         }
     }
     return bundle

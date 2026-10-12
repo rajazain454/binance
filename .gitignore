@@ -16,6 +16,8 @@ __pycache__/
 
 # Large raw training cache files (live bot uses models/ and queries live candles)
 data/*.csv
+data/long/
+archive/
 
 # Local log files and test artifacts
 logs/*.log

@@ -1,6 +1,7 @@
 """Position monitoring, dynamic take-profit, trailing stops, and exits."""
 
 import logging
+import uuid
 from datetime import datetime, timezone, timedelta
 from bot.ledger import log_trade
 
@@ -65,6 +66,9 @@ def check_and_update_positions(client, state, config):
         units = pos["units"]
         allocated = pos["allocated_usdt"]
 
+        pos_id = pos.get("position_id") or str(uuid.uuid4())
+        pos["position_id"] = pos_id
+
         # Update live mark-to-market metrics & peak price
         pos["curr_price"] = curr_price
         gross_unrealized = units * (curr_price - entry_price)
@@ -124,9 +128,11 @@ def check_and_update_positions(client, state, config):
                     gross_pnl = units * (curr_price - entry_price)
                     fee = allocated * cost_rate * 2.0
                     net_pnl = gross_pnl - fee
+                    total_trade_pnl = round(pos.get("tp1_booked_pnl", 0.0) + net_pnl, 4)
+                    is_win = total_trade_pnl > 0
+
                     state["balance_usdt"] += (allocated + net_pnl)
                     state["trade_count"] += 1
-                    is_win = net_pnl > 0
                     if is_win:
                         state["win_count"] += 1
                     else:
@@ -134,6 +140,7 @@ def check_and_update_positions(client, state, config):
 
                     record = {
                         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                        "position_id": pos_id,
                         "symbol": sym,
                         "action": "FINAL CLOSE (FULL TP1 REACHED)",
                         "entry_price": round(entry_price, 4),
@@ -159,6 +166,7 @@ def check_and_update_positions(client, state, config):
                     pos["tp1_reached"] = True
                     record = {
                         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                        "position_id": pos_id,
                         "symbol": sym,
                         "action": "BREAKEVEN LOCK (SMALL ACCOUNT)",
                         "entry_price": round(entry_price, 4),
@@ -171,7 +179,7 @@ def check_and_update_positions(client, state, config):
                         "pnl_pct": 0.0,
                         "confidence_pct": pos.get("confidence", ""),
                         "reason": f"TP1 reached! Size (${sell_allocated:.2f}) < ${min_notional:.1f} minNotional. Stop Loss locked to BREAKEVEN for 100% position!",
-                        "outcome": "WIN",
+                        "outcome": "EVENT",
                         "mode": config.get("trading_mode", "paper").upper(),
                     }
                     log_trade(record, config["paths"]["trade_ledger"])
@@ -194,11 +202,9 @@ def check_and_update_positions(client, state, config):
             pos["units"] -= sell_units
             pos["allocated_usdt"] -= sell_allocated
             pos["tp1_reached"] = True
-            pos["tp1_booked_pnl"] = round(net_pnl, 4)
+            pos["tp1_booked_pnl"] = round(pos.get("tp1_booked_pnl", 0.0) + net_pnl, 4)
 
-            # Count partial TP1 exits as real closed trades
-            state["trade_count"] += 1
-            state["win_count"] += 1
+            # Partial TP1 is logged as an event; do not increment trade_count/win_count/loss_count
 
             # Breakeven / Profit lock: ratchet Stop Loss to secure profit
             if config.get("ai_model", {}).get("breakeven_lock_enabled", True):
@@ -206,6 +212,7 @@ def check_and_update_positions(client, state, config):
 
             record = {
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "position_id": pos_id,
                 "symbol": sym,
                 "action": "PARTIAL TP1 (50% SOLD)",
                 "entry_price": round(entry_price, 4),
@@ -218,7 +225,7 @@ def check_and_update_positions(client, state, config):
                 "pnl_pct": round((net_pnl / sell_allocated) * 100, 2),
                 "confidence_pct": pos.get("confidence", ""),
                 "reason": "TP1 Reached (50% profit booked). Stop Loss locked to BREAKEVEN!",
-                "outcome": "WIN",
+                "outcome": "EVENT",
                 "mode": config.get("trading_mode", "paper").upper(),
             }
             log_trade(record, config["paths"]["trade_ledger"])
@@ -251,9 +258,11 @@ def check_and_update_positions(client, state, config):
             gross_pnl = units * (curr_price - entry_price)
             fee = allocated * cost_rate * 2.0
             net_pnl = gross_pnl - fee
-            total_trade_pnl = pos.get("tp1_booked_pnl", 0.0) + net_pnl
+            total_trade_pnl = round(pos.get("tp1_booked_pnl", 0.0) + net_pnl, 4)
 
-            is_win = hit_tp2 or (curr_price >= entry_price and net_pnl >= 0) or (pos.get("tp1_reached", False) and total_trade_pnl > 0)
+            # Single trade outcome: WIN only if total trade PnL > 0 (a -$0.02 position must be LOSS)
+            is_win = total_trade_pnl > 0
+            outcome = "WIN" if is_win else "LOSS"
 
             state["balance_usdt"] += (allocated + net_pnl)
             state["trade_count"] += 1
@@ -268,6 +277,7 @@ def check_and_update_positions(client, state, config):
 
             record = {
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "position_id": pos_id,
                 "symbol": sym,
                 "action": "FINAL CLOSE",
                 "entry_price": round(entry_price, 4),
@@ -280,7 +290,7 @@ def check_and_update_positions(client, state, config):
                 "pnl_pct": round((net_pnl / allocated) * 100, 2),
                 "confidence_pct": pos.get("confidence", ""),
                 "reason": exit_reason,
-                "outcome": "WIN" if is_win else "LOSS",
+                "outcome": outcome,
                 "mode": config.get("trading_mode", "paper").upper(),
             }
             log_trade(record, config["paths"]["trade_ledger"])
