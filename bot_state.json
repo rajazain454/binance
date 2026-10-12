@@ -1,15 +1,17 @@
 {
-  "balance_usdt": 100.0,
+  "balance_usdt": 99.63696715518847,
   "peak_balance": 100.0,
-  "daily_peak_balance": 100.0,
-  "daily_reset_time": "2026-10-12T11:36:13.314462+00:00",
+  "daily_peak_balance": 99.63696715518847,
+  "daily_reset_time": "2026-10-12T05:01:24.070208+00:00",
   "circuit_breaker_until": null,
   "open_positions": {},
   "loss_cooldowns": {},
-  "trade_count": 0,
-  "win_count": 0,
-  "loss_count": 0,
+  "trade_count": 13,
+  "win_count": 8,
+  "loss_count": 5,
   "last_update": "2026-10-12 11:36:24",
+  "last_digest_date": "2026-10-12",
+  "last_hourly_alert": "2026-10-12 11:01:35",
   "macro_regime": "MACRO BULL TREND (BTC $83,773 > 200d SMA $72,018)",
   "is_bear_defense": false
 }
