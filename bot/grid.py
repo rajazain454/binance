@@ -97,6 +97,8 @@ def discover_top_momentum_symbols(
     client,
     min_volume_usdt: float = 2_000_000.0,
     max_symbols: int = 15,
+    max_dump_from_high_pct: float = 7.0,
+    max_daily_gain_pct: float = 35.0,
 ) -> List[str]:
     """Dynamically screens all 350+ Binance Spot USDT pairs and returns the top active runners."""
     tickers = {}
@@ -125,6 +127,18 @@ def discover_top_momentum_symbols(
         vol = float(tk.get("quoteVolume", 0.0) or 0.0)
         pct = float(tk.get("percentage", 0.0) or 0.0)
         price = float(tk.get("last", 0.0) or 0.0)
+        high = float(tk.get("high", 0.0) or 0.0)
+
+        # 24h High Proximity Filter: Avoid buying into whale distribution dumps
+        if high > 0 and price > 0 and pct > 20.0:
+            dump_pct = ((high - price) / high) * 100.0
+            if dump_pct > max_dump_from_high_pct:
+                continue
+
+        # Avoid super-overextended parabolic peaks
+        if pct > max_daily_gain_pct:
+            continue
+
         if vol >= min_volume_usdt and price > 0:
             valid_runners.append((sym, pct, vol, price))
 
@@ -153,7 +167,10 @@ def select_best_halal_asset(
         if grid_cfg.get("scan_all_pairs", False):
             min_vol = grid_cfg.get("min_24h_volume_usdt", 2_000_000.0)
             max_cand = grid_cfg.get("max_candidates_to_analyze", 15)
-            runners = discover_top_momentum_symbols(client, min_vol, max_cand)
+            high_cfg = grid_cfg.get("high_proximity_filter", {})
+            max_dump = high_cfg.get("max_dump_from_high_pct", 7.0) if high_cfg.get("enabled", True) else 100.0
+            max_gain = high_cfg.get("max_daily_gain_pct", 35.0) if high_cfg.get("enabled", True) else 100.0
+            runners = discover_top_momentum_symbols(client, min_vol, max_cand, max_dump, max_gain)
             if runners:
                 symbols_to_scan = list(dict.fromkeys(runners + symbols))
 
@@ -572,6 +589,30 @@ def run_grid_cycle(
                 except Exception:
                     pass
 
+        # 3e. EARLY MOMENTUM INVALIDATION GUARD (Cut failed breakouts at -0.8% instead of -1.8%)
+        early_inv_cfg = grid_cfg.get("early_momentum_invalidation", {})
+        if not should_exit and early_inv_cfg.get("enabled", True):
+            loss_thresh = early_inv_cfg.get("loss_threshold_pct", 0.5) / 100.0
+            if gain_pct <= -loss_thresh and not pos.get("trailing_active", False):
+                try:
+                    df_pos = fetch_client_df(client, symbol, timeframe=timeframe, limit=10)
+                    if len(df_pos) >= 4:
+                        c1 = df_pos.iloc[-1]
+                        c2 = df_pos.iloc[-2]
+                        c1_red = float(c1["close"]) < float(c1["open"])
+                        c2_red = float(c2["close"]) < float(c2["open"])
+                        ema9_pos = float(df_pos["close"].ewm(span=9, adjust=False).mean().iloc[-1])
+                        if c1_red and c2_red and p_price < ema9_pos:
+                            should_exit = True
+                            outcome = "LOSS"
+                            harvest_reason = f"Early Momentum Invalidation (-{abs(gain_pct)*100:.2f}%, 2 red closes below EMA9)"
+                            logger.info(
+                                "🛡️ [EARLY INVALIDATION] %s broke down below EMA9 with 2 red candles (-%.2f%%). Cutting loss early to protect capital.",
+                                symbol, abs(gain_pct) * 100.0
+                            )
+                except Exception:
+                    pass
+
         if should_exit:
             exit_price = p_price
             gross_pnl = allocated_usdt * ((exit_price / entry_price) - 1.0)
@@ -720,12 +761,24 @@ def run_grid_cycle(
 
         cand_price = cand["current_price"]
         cand_atr = cand["atr"]
+        cand_ema9 = cand.get("ema9", cand_price)
         try:
             live_cp = fetch_client_price(client, cand_sym)
             if live_cp > 0:
                 cand_price = live_cp
         except Exception:
             pass
+
+        # Pullback Retrace Calibration (Never Buy the Spike Peak)
+        pullback_cfg = grid_cfg.get("pullback_retrace", {})
+        if pullback_cfg.get("enabled", True):
+            retrace_pct = pullback_cfg.get("retrace_pct", 0.006)
+            retrace_price = cand_price * (1.0 - retrace_pct)
+            if cand_ema9 > 0 and cand_ema9 < cand_price:
+                optimal_entry = max(cand_ema9, retrace_price)
+            else:
+                optimal_entry = retrace_price
+            cand_price = round(optimal_entry, 4 if optimal_entry < 10 else 2)
 
         # Dynamic ATR-Based Take-Profit and Stop Loss
         atr_pct = (cand_atr / cand_price) if cand_price > 0 else 0.02
@@ -743,8 +796,23 @@ def run_grid_cycle(
         tp1_pct = partial_cfg.get("tp1_pct", 0.018)
         tp1_price = cand_price * (1.0 + max(tp1_pct, elastic_tp_pct * 0.55))
 
+        # Volatility-Adjusted Position Sizing (Risk Parity)
+        vol_size_cfg = grid_cfg.get("volatility_sizing", {})
+        actual_order_size = order_size_usdt
+        if vol_size_cfg.get("enabled", False):
+            target_risk = vol_size_cfg.get("target_risk_usdt", 0.60)
+            min_order = vol_size_cfg.get("min_order_usdt", 18.0)
+            max_order = vol_size_cfg.get("max_order_usdt", 35.0)
+            if elastic_sl_pct > 0:
+                risk_sized = target_risk / elastic_sl_pct
+                actual_order_size = round(min(max_order, max(min_order, risk_sized)), 2)
+
+        actual_order_size = min(actual_order_size, available_cash)
+        if actual_order_size < 10.0:
+            continue
+
         pos_id = str(uuid.uuid4())[:8]
-        state["balance_usdt"] -= order_size_usdt
+        state["balance_usdt"] -= actual_order_size
         new_pos = {
             "position_id": pos_id,
             "symbol": cand_sym,
@@ -756,7 +824,7 @@ def run_grid_cycle(
             "take_profit": target_tp_price,
             "tp1_price": tp1_price,
             "partial_tp_taken": False,
-            "allocated_usdt": order_size_usdt,
+            "allocated_usdt": actual_order_size,
             "unrealized_pnl": 0.0,
             "unrealized_pnl_pct": 0.0,
             "trailing_active": False,
@@ -767,12 +835,12 @@ def run_grid_cycle(
         grid_state["grid_trades"] += 1
         coins_with_positions.add(cand_sym)
         total_open_positions += 1
-        available_cash -= order_size_usdt
+        available_cash -= actual_order_size
 
         new_buys.append(new_pos)
         logger.info(
             "🟢 [SNIPER BUY] %s Bought $%s at $%s | Setup: %s | Target TP: $%s (+%.2f%%)",
-            cand_sym, f"{order_size_usdt:.2f}", f"{cand_price:,.4f}",
+            cand_sym, f"{actual_order_size:.2f}", f"{cand_price:,.4f}",
             cand.get("setup_name", "Scalp"), f"{target_tp_price:,.4f}", elastic_tp_pct * 100.0
         )
         break

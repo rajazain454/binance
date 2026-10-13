@@ -436,6 +436,122 @@ class TestHalalGrid(BaseTestCase):
         # Should be rejected because 0.5% > 0.15% max spread
         self.assertEqual(len(new_buys), 0)
 
+    def test_pullback_retrace_entry_calibration(self):
+        client = MagicMock()
+        mock_klines = [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1000.0}
+            for _ in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "100.0"}
+
+        cfg = {
+            "paths": self.get_test_paths(),
+            "timeframe": "15m",
+            "risk_management": {"fee_rate": 0.00075},
+            "grid_trading": {
+                "enabled": True,
+                "halal_basket": ["SOL/USDT"],
+                "macro_benchmark": "BTC/USDT",
+                "order_size_usdt": 20.0,
+                "max_grid_levels": 2,
+                "pullback_retrace": {"enabled": True, "retrace_pct": 0.01}, # 1% retrace
+                "require_confluence_signal": False,
+            },
+        }
+        state = {
+            "balance_usdt": 100.0,
+            "open_positions": {},
+            "grid_state": {"active_symbol": "SOL/USDT", "total_grid_profit_usdt": 0.0, "cycles_completed": 0, "grid_trades": 0},
+        }
+        new_buys, _, _ = run_grid_cycle(client, state, cfg)
+        self.assertEqual(len(new_buys), 1)
+        # Entry price should be discounted by retrace percentage rather than buying 100.0 peak
+        self.assertLess(new_buys[0]["entry_price"], 100.0)
+
+    def test_24h_high_proximity_filter_exhaustion(self):
+        client = MagicMock()
+        client.fetch_all_tickers.return_value = {
+            # Coin A: Up 25% but dumped 10% from high (high 1.10, last 0.99) -> dump is 10%
+            "DUMP/USDT": {"quoteVolume": 5000000.0, "percentage": 25.0, "last": 0.99, "high": 1.10},
+            # Coin B: Up 15% and near high (high 1.02, last 1.00) -> dump is 2%
+            "FRESH/USDT": {"quoteVolume": 5000000.0, "percentage": 15.0, "last": 1.00, "high": 1.02},
+            # Coin C: Overextended parabolic (+40% gain)
+            "PARABOLIC/USDT": {"quoteVolume": 5000000.0, "percentage": 40.0, "last": 2.0, "high": 2.0},
+        }
+        runners = discover_top_momentum_symbols(client, min_volume_usdt=2000000.0, max_symbols=5, max_dump_from_high_pct=7.0, max_daily_gain_pct=35.0)
+        self.assertIn("FRESH/USDT", runners)
+        self.assertNotIn("DUMP/USDT", runners)        # Rejected due to 10% dump off 24h high
+        self.assertNotIn("PARABOLIC/USDT", runners)   # Rejected due to >35% gain
+
+    def test_volatility_sizing_risk_parity(self):
+        client = MagicMock()
+        mock_klines = [
+            {"open": 100.0, "high": 102.0, "low": 98.0, "close": 100.0, "volume": 1000.0}
+            for _ in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "100.0"}
+
+        cfg = {
+            "paths": self.get_test_paths(),
+            "timeframe": "15m",
+            "risk_management": {"fee_rate": 0.00075},
+            "grid_trading": {
+                "enabled": True,
+                "halal_basket": ["SOL/USDT"],
+                "macro_benchmark": "BTC/USDT",
+                "order_size_usdt": 20.0,
+                "max_grid_levels": 2,
+                "stop_loss_pct": 0.02, # 2% stop loss
+                "volatility_sizing": {"enabled": True, "target_risk_usdt": 0.60, "min_order_usdt": 18.0, "max_order_usdt": 35.0},
+                "require_confluence_signal": False,
+            },
+        }
+        state = {
+            "balance_usdt": 100.0,
+            "open_positions": {},
+            "grid_state": {"active_symbol": "SOL/USDT", "total_grid_profit_usdt": 0.0, "cycles_completed": 0, "grid_trades": 0},
+        }
+        new_buys, _, _ = run_grid_cycle(client, state, cfg)
+        self.assertEqual(len(new_buys), 1)
+        # Sizing with 0.60 risk / 0.02 stop = $30.00 allocated
+        self.assertAlmostEqual(new_buys[0]["allocated_usdt"], 30.0, delta=1.0)
+
+    def test_early_momentum_invalidation_guard(self):
+        client = MagicMock()
+        # 10 klines ending with 2 red candles below EMA9
+        mock_klines = [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1000.0}
+            for _ in range(40)
+        ]
+        mock_klines.append({"open": 100.0, "high": 100.2, "low": 99.0, "close": 99.2, "volume": 800.0}) # Red candle 1
+        mock_klines.append({"open": 99.2, "high": 99.3, "low": 98.5, "close": 98.8, "volume": 700.0})   # Red candle 2
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "98.8"}
+
+        pos_id = "inv-pos"
+        self.state["open_positions"][pos_id] = {
+            "position_id": pos_id,
+            "symbol": "SOL/USDT",
+            "direction": "BUY_SPOT",
+            "entry_time": "2026-10-13T10:00:00Z",
+            "entry_price": 100.0,
+            "curr_price": 98.8,
+            "stop_loss": 97.5, # Regular stop loss is far below (at 97.5)
+            "take_profit": 103.0,
+            "allocated_usdt": 20.0,
+            "unrealized_pnl": -0.24,
+            "unrealized_pnl_pct": -1.2,
+            "trailing_active": False,
+        }
+        self.config["grid_trading"]["early_momentum_invalidation"] = {"enabled": True, "loss_threshold_pct": 0.5}
+
+        new_buys, harvested, status = run_grid_cycle(client, self.state, self.config)
+        self.assertEqual(len(harvested), 1)
+        self.assertIn("Early Momentum Invalidation", harvested[0]["reason"])
+        self.assertNotIn(pos_id, self.state["open_positions"])
+
 
 if __name__ == "__main__":
     unittest.main()

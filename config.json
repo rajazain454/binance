@@ -66,6 +66,25 @@
     "correlation_guard": {
       "enabled": true,
       "max_correlation": 0.85
+    },
+    "pullback_retrace": {
+      "enabled": true,
+      "retrace_pct": 0.006
+    },
+    "high_proximity_filter": {
+      "enabled": true,
+      "max_dump_from_high_pct": 7.0,
+      "max_daily_gain_pct": 35.0
+    },
+    "volatility_sizing": {
+      "enabled": true,
+      "target_risk_usdt": 0.60,
+      "min_order_usdt": 18.0,
+      "max_order_usdt": 35.0
+    },
+    "early_momentum_invalidation": {
+      "enabled": true,
+      "loss_threshold_pct": 0.5
     }
   },
   "macro_regime_filter": {
