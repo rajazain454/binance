@@ -269,23 +269,26 @@ def select_best_halal_asset(
             vol_spike_multiplier = config.get("grid_trading", {}).get("vol_spike_multiplier", 2.0) if config else 2.0
 
             # -------------------------------------------------------------
-            # SETUP 1: Oversold Reversal Bounce (Sniper Dip Entry)
+            # SETUP 1: Institutional Volume Surge Inflow (Breakout Ignition)
+            # Relative volume >= threshold, green candle, healthy close, above EMA-21
             # -------------------------------------------------------------
-            is_oversold = (min_recent_rsi <= 36.0 or last_close <= bb_lower_val * 1.005)
-            bounce_confirmed = is_green_candle and is_higher_close and is_healthy_close
-            signal_oversold = is_oversold and bounce_confirmed
+            signal_vol_surge = (vol_ratio >= vol_spike_multiplier) and is_green_candle and is_healthy_close and (45.0 <= curr_rsi <= 78.0) and (curr_price >= ema21)
 
             # -------------------------------------------------------------
             # SETUP 2: Bullish Momentum Breakout (Trend Continuation)
+            # EMAs aligned, RSI 50-68 sweet spot, volume expanding, healthy close
             # -------------------------------------------------------------
             is_trend_aligned = (ema9 > ema21 > ema50) or (ema9 > ema21 and curr_price > ema50)
             is_momentum_rsi = (50.0 <= curr_rsi <= 68.0)
             signal_momentum = is_trend_aligned and is_momentum_rsi and is_green_candle and vol_expansion and is_healthy_close
 
             # -------------------------------------------------------------
-            # SETUP 3: Institutional Volume Surge Inflow (Breakout Ignition)
+            # SETUP 3: Oversold Reversal Bounce (Sniper Dip Reclaim)
+            # Requires verified price reclaim of EMA-9 to avoid falling knives
             # -------------------------------------------------------------
-            signal_vol_surge = (vol_ratio >= vol_spike_multiplier) and is_green_candle and is_healthy_close and (45.0 <= curr_rsi <= 78.0) and (curr_price >= ema21)
+            is_oversold = (min_recent_rsi <= 36.0 or last_close <= bb_lower_val * 1.005)
+            bounce_confirmed = is_green_candle and is_higher_close and is_healthy_close and (curr_price >= ema9 * 0.998)
+            signal_oversold = is_oversold and bounce_confirmed
 
             signal_triggered = False
             setup_name = f"Consolidating (RSI {curr_rsi:.0f})"
@@ -297,18 +300,18 @@ def select_best_halal_asset(
             if signal_vol_surge:
                 signal_triggered = True
                 setup_name = f"Volume Surge ({vol_ratio:.1f}x Vol)"
-                prob_win = 0.95
-                total_rank = 97.0 + min(vol_ratio, 6.0) * 2.0
-            elif signal_oversold:
-                signal_triggered = True
-                setup_name = f"Oversold Bounce (RSI {curr_rsi:.0f})"
-                prob_win = 0.92
-                total_rank = 95.0 + max(0.0, 36.0 - min_recent_rsi)
+                prob_win = 0.96
+                total_rank = 98.0 + min(vol_ratio, 6.0) * 2.0
             elif signal_momentum:
                 signal_triggered = True
                 setup_name = f"Trend Breakout (RSI {curr_rsi:.0f})"
-                prob_win = 0.88
-                total_rank = 90.0 + max(0.0, curr_rsi - 50.0)
+                prob_win = 0.90
+                total_rank = 92.0 + max(0.0, curr_rsi - 50.0)
+            elif signal_oversold:
+                signal_triggered = True
+                setup_name = f"Oversold Bounce (RSI {curr_rsi:.0f})"
+                prob_win = 0.86
+                total_rank = 86.0 + max(0.0, 36.0 - min_recent_rsi)
 
             # -------------------------------------------------------------
             # Multi-Timeframe (MTF) 1-Hour Trend Alignment Guard
