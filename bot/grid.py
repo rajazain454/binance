@@ -277,13 +277,13 @@ def run_grid_cycle(
     timeframe = config.get("timeframe", "15m")
     fee_rate = config.get("risk_management", {}).get("fee_rate", 0.00075)
 
-    target_tp_pct = grid_cfg.get("target_tp_pct", 0.020)
-    stop_loss_pct = grid_cfg.get("stop_loss_pct", 0.022)
-    breakeven_trigger_pct = grid_cfg.get("breakeven_trigger_pct", 0.010)
+    target_tp_pct = grid_cfg.get("target_tp_pct", 0.012)
+    stop_loss_pct = grid_cfg.get("stop_loss_pct", 0.018)
+    breakeven_trigger_pct = grid_cfg.get("breakeven_trigger_pct", 0.008)
 
     trailing_cfg = grid_cfg.get("trailing_take_profit", {})
     trailing_enabled = trailing_cfg.get("enabled", False)
-    callback_pct = trailing_cfg.get("callback_pct", 0.005)
+    callback_pct = trailing_cfg.get("callback_pct", 0.004)
 
     # 1. Initialize grid state if missing
     if "grid_state" not in state:

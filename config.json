@@ -31,12 +31,12 @@
     "max_levels_per_coin": 1,
     "min_step_pct": 0.015,
     "min_cash_reserve_usdt": 25.0,
-    "target_tp_pct": 0.020,
-    "stop_loss_pct": 0.022,
-    "breakeven_trigger_pct": 0.010,
+    "target_tp_pct": 0.012,
+    "stop_loss_pct": 0.018,
+    "breakeven_trigger_pct": 0.008,
     "trailing_take_profit": {
       "enabled": true,
-      "callback_pct": 0.005
+      "callback_pct": 0.004
     }
   },
   "macro_regime_filter": {
