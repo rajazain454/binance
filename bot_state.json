@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 69.49023255813954,
+  "balance_usdt": 34.49023255813954,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-13T00:00:00.000000+00:00",
@@ -20,6 +20,24 @@
       "trailing_active": false,
       "peak_price": 0.00711,
       "setup_name": "Oversold Bounce (RSI 37)"
+    },
+    "0acec70d": {
+      "position_id": "0acec70d",
+      "symbol": "INIT/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-13T16:21:50.682557+00:00",
+      "entry_price": 0.1247,
+      "curr_price": 0.1247,
+      "stop_loss": 0.12282950000000001,
+      "take_profit": 0.12819160000000002,
+      "tp1_price": 0.12694460000000002,
+      "partial_tp_taken": false,
+      "allocated_usdt": 35.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 0.1247,
+      "setup_name": "Volume Surge (6.0x Vol)"
     }
   },
   "loss_cooldowns": {},
@@ -27,7 +45,7 @@
   "win_count": 0,
   "loss_count": 1,
   "realized_pnl_usdt": -0.509767441860466,
-  "last_update": "2026-10-13 16:12:47",
+  "last_update": "2026-10-13 16:21:50",
   "last_digest_date": "2026-10-13",
   "last_hourly_alert": "2026-10-13 16:12:47",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
@@ -35,10 +53,11 @@
   "grid_state": {
     "active_symbol": "HFT/USDT",
     "active_symbols": [
-      "HFT/USDT"
+      "HFT/USDT",
+      "INIT/USDT"
     ],
     "total_grid_profit_usdt": -0.509767441860466,
     "cycles_completed": 1,
-    "grid_trades": 2
+    "grid_trades": 3
   }
 }
