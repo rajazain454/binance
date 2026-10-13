@@ -37,6 +37,15 @@
     "target_tp_pct": 0.028,
     "stop_loss_pct": 0.020,
     "breakeven_trigger_pct": 0.012,
+    "vol_spike_multiplier": 2.0,
+    "mtf_guard_enabled": true,
+    "atr_tp_multiplier": 1.8,
+    "atr_sl_multiplier": 1.2,
+    "partial_take_profit": {
+      "enabled": true,
+      "tp1_pct": 0.018,
+      "ratio": 0.5
+    },
     "trailing_take_profit": {
       "enabled": true,
       "callback_pct": 0.005

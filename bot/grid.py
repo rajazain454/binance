@@ -218,10 +218,13 @@ def select_best_halal_asset(
             is_green_candle = (last_close > last_open)
             is_higher_close = (last_close >= prev_close)
 
-            # Volume expansion
-            avg_vol = float(df["volume"].iloc[-20:].mean()) if len(df) >= 20 else 1.0
-            curr_vol = float(df["volume"].iloc[-1]) if len(df) >= 1 else 1.0
-            vol_expansion = (curr_vol >= avg_vol * 1.15)
+            # Volume expansion & Anomaly Spike Detection
+            vol_series = df["volume"] if "volume" in df.columns else pd.Series([1.0] * len(df))
+            avg_vol = float(vol_series.iloc[-21:-1].mean()) if len(vol_series) >= 21 else (float(vol_series.mean()) if not vol_series.empty else 1.0)
+            curr_vol = float(vol_series.iloc[-1]) if len(vol_series) >= 1 else 1.0
+            vol_ratio = (curr_vol / avg_vol) if avg_vol > 0 else 1.0
+            vol_expansion = (vol_ratio >= 1.25)
+            vol_spike_multiplier = config.get("grid_trading", {}).get("vol_spike_multiplier", 2.0) if config else 2.0
 
             # -------------------------------------------------------------
             # SETUP 1: Oversold Reversal Bounce (Sniper Dip Entry)
@@ -237,12 +240,22 @@ def select_best_halal_asset(
             is_momentum_rsi = (50.0 <= curr_rsi <= 68.0)
             signal_momentum = is_trend_aligned and is_momentum_rsi and is_green_candle and vol_expansion
 
+            # -------------------------------------------------------------
+            # SETUP 3: Institutional Volume Surge Inflow (Breakout Ignition)
+            # -------------------------------------------------------------
+            signal_vol_surge = (vol_ratio >= vol_spike_multiplier) and is_green_candle and (45.0 <= curr_rsi <= 78.0) and (curr_price >= ema21)
+
             signal_triggered = False
             setup_name = f"Consolidating (RSI {curr_rsi:.0f})"
             prob_win = 0.50
             total_rank = 0.0
 
-            if signal_oversold:
+            if signal_vol_surge:
+                signal_triggered = True
+                setup_name = f"Volume Surge ({vol_ratio:.1f}x Vol)"
+                prob_win = 0.95
+                total_rank = 97.0 + min(vol_ratio, 6.0) * 2.0
+            elif signal_oversold:
                 signal_triggered = True
                 setup_name = f"Oversold Bounce (RSI {curr_rsi:.0f})"
                 prob_win = 0.92
@@ -253,6 +266,34 @@ def select_best_halal_asset(
                 prob_win = 0.88
                 total_rank = 90.0 + max(0.0, curr_rsi - 50.0)
 
+            # -------------------------------------------------------------
+            # Multi-Timeframe (MTF) 1-Hour Trend Alignment Guard
+            # -------------------------------------------------------------
+            mtf_trend_ok = True
+            check_mtf = config.get("grid_trading", {}).get("mtf_guard_enabled", True) if config else True
+            if signal_triggered and check_mtf:
+                try:
+                    df_1h = fetch_client_df(client, symbol, timeframe="1h", limit=40)
+                    if not df_1h.empty and len(df_1h) >= 20:
+                        close_1h = float(df_1h["close"].iloc[-1])
+                        ema50_1h = float(df_1h["close"].ewm(span=min(50, len(df_1h)), adjust=False).mean().iloc[-1])
+                        rsi_1h_s = calculate_rsi(df_1h["close"], period=14)
+                        rsi_1h = float(rsi_1h_s.iloc[-1]) if not rsi_1h_s.empty else 50.0
+                        if rsi_1h < 38.0 and close_1h < ema50_1h * 0.985:
+                            mtf_trend_ok = False
+                            logger.info(
+                                "🛡️ [MTF Guard] %s 15m signal suppressed (1h RSI %.0f below 38 & price under 1h EMA50)",
+                                symbol, rsi_1h
+                            )
+                except Exception:
+                    pass
+
+            if not mtf_trend_ok:
+                signal_triggered = False
+                setup_name = f"MTF Bear Block (1h Trend)"
+                prob_win = 0.40
+                total_rank = 0.0
+
             candidates.append({
                 "symbol": symbol,
                 "current_price": curr_price,
@@ -262,6 +303,7 @@ def select_best_halal_asset(
                 "ema9": ema9,
                 "ema21": ema21,
                 "ema50": ema50,
+                "vol_ratio": round(vol_ratio, 2),
                 "signal_triggered": signal_triggered,
                 "setup_name": setup_name,
                 "prob_win": prob_win,
@@ -395,11 +437,74 @@ def run_grid_cycle(
                     symbol, gain_pct * 100.0, guaranteed_sl
                 )
 
+        # 3b. PARTIAL PROFIT SCALING (Take 50% profit at TP1, lock risk-free stop)
+        partial_cfg = grid_cfg.get("partial_take_profit", {})
+        partial_enabled = partial_cfg.get("enabled", False)
+        tp1_price = pos.get("tp1_price", entry_price * (1.0 + partial_cfg.get("tp1_pct", 0.018)))
+        if partial_enabled and not pos.get("partial_tp_taken", False) and p_price >= tp1_price and (trailing_enabled or p_price < target_tp):
+            ratio = partial_cfg.get("ratio", 0.5)
+            part_alloc = allocated_usdt * ratio
+            part_gross = part_alloc * ((p_price / entry_price) - 1.0)
+            part_fees = (part_alloc * fee_rate) + ((part_alloc + part_gross) * fee_rate)
+            part_net = part_gross - part_fees
+            part_pnl_pct = ((p_price / entry_price) - 1.0) * 100.0
+
+            state["balance_usdt"] += (part_alloc + part_net)
+            state["realized_pnl_usdt"] += part_net
+            grid_state["total_grid_profit_usdt"] += part_net
+            state["trades_won"] = state.get("trades_won", 0) + 1
+
+            pos["allocated_usdt"] -= part_alloc
+            allocated_usdt = pos["allocated_usdt"]
+            pos["partial_tp_taken"] = True
+            pos["stop_loss"] = max(pos.get("stop_loss", 0.0), round(entry_price * 1.003, 4))
+            stop_loss = pos["stop_loss"]
+            pos["trailing_active"] = True
+            pos["peak_price"] = p_price
+
+            try:
+                trade_record = {
+                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "position_id": pos_id + "-TP1",
+                    "symbol": symbol,
+                    "action": "PARTIAL_TP1_HARVEST",
+                    "entry_price": entry_price,
+                    "exit_price": p_price,
+                    "allocated_usdt": part_alloc,
+                    "stop_loss": stop_loss,
+                    "tp1": tp1_price,
+                    "tp2": target_tp,
+                    "net_pnl": part_net,
+                    "pnl_pct": part_pnl_pct,
+                    "confidence_pct": 100.0,
+                    "reason": f"Partial TP1 Harvest (50% closed at +{part_pnl_pct:.2f}%)",
+                    "outcome": "WIN",
+                    "mode": config.get("trading_mode", "paper"),
+                }
+                log_trade(trade_record, ledger_path=config["paths"]["trade_ledger"])
+            except Exception as e:
+                logger.error("Failed to log partial TP1 trade: %s", e)
+
+            harvested_profits.append({
+                "symbol": symbol,
+                "position_id": pos_id + "-TP1",
+                "entry_price": entry_price,
+                "exit_price": p_price,
+                "net_pnl": part_net,
+                "pnl_pct": part_pnl_pct,
+                "allocated_usdt": part_alloc,
+                "reason": f"Partial TP1 Harvest (50% closed at +{part_pnl_pct:.2f}%)",
+            })
+            logger.info(
+                "💰 [PARTIAL TP1] %s 50%% Harvested at $%s (+%.2f%%) | Booked Net: +$%.2f USDT | Remaining $%.2f Trailing with SL $%.4f",
+                symbol, f"{p_price:,.4f}", part_pnl_pct, part_net, allocated_usdt, stop_loss
+            )
+
         should_exit = False
         outcome = "WIN"
         harvest_reason = ""
 
-        # 3b. TRAILING TAKE-PROFIT / PROFIT HARVEST
+        # 3c. TRAILING TAKE-PROFIT / PROFIT HARVEST
         if trailing_enabled:
             if pos.get("trailing_active", False):
                 if p_price > pos.get("peak_price", p_price):
@@ -407,7 +512,7 @@ def run_grid_cycle(
 
                 peak = pos.get("peak_price", p_price)
                 trailing_stop = peak * (1.0 - callback_pct)
-                floor_stop = max(target_tp * 0.998, entry_price * 1.003)
+                floor_stop = max(target_tp * 0.998, entry_price * 1.003) if peak >= target_tp else (entry_price * 1.003)
 
                 if p_price <= trailing_stop or p_price <= floor_stop:
                     should_exit = True
@@ -536,10 +641,21 @@ def run_grid_cycle(
         except Exception:
             pass
 
-        # Dynamic Take-Profit and Stop Loss
-        elastic_tp_pct = max(target_tp_pct, (cand_atr / cand_price) * 1.2) if cand_price > 0 else target_tp_pct
+        # Dynamic ATR-Based Take-Profit and Stop Loss
+        atr_pct = (cand_atr / cand_price) if cand_price > 0 else 0.02
+        atr_tp_mult = grid_cfg.get("atr_tp_multiplier", 1.8)
+        elastic_tp_pct = min(0.08, max(target_tp_pct, atr_pct * atr_tp_mult))
+
+        atr_sl_mult = grid_cfg.get("atr_sl_multiplier", 1.2)
+        elastic_sl_pct = min(stop_loss_pct, max(0.015, atr_pct * atr_sl_mult))
+
         target_tp_price = cand_price * (1.0 + elastic_tp_pct)
-        stop_loss_price = cand_price * (1.0 - stop_loss_pct)
+        stop_loss_price = cand_price * (1.0 - elastic_sl_pct)
+
+        # TP1 Partial scaling target
+        partial_cfg = grid_cfg.get("partial_take_profit", {})
+        tp1_pct = partial_cfg.get("tp1_pct", 0.018)
+        tp1_price = cand_price * (1.0 + max(tp1_pct, elastic_tp_pct * 0.55))
 
         pos_id = str(uuid.uuid4())[:8]
         state["balance_usdt"] -= order_size_usdt
@@ -552,6 +668,8 @@ def run_grid_cycle(
             "curr_price": cand_price,
             "stop_loss": stop_loss_price,
             "take_profit": target_tp_price,
+            "tp1_price": tp1_price,
+            "partial_tp_taken": False,
             "allocated_usdt": order_size_usdt,
             "unrealized_pnl": 0.0,
             "unrealized_pnl_pct": 0.0,

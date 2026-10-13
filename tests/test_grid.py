@@ -201,6 +201,106 @@ class TestHalalGrid(BaseTestCase):
             self.assertNotEqual(new_buys[0]["symbol"], "NEAR/USDT")
             self.assertLessEqual(len(self.state["open_positions"]), 5)
 
+    def test_volume_surge_setup_detection(self):
+        client = MagicMock()
+        # 40 klines with flat 1000 vol, then last candle has 4000 vol (4x spike) and green close
+        mock_klines = [
+            {"open": 10.0, "high": 10.2, "low": 9.9, "close": 10.0, "volume": 1000.0}
+            for _ in range(40)
+        ]
+        mock_klines.append({"open": 10.0, "high": 10.6, "low": 10.0, "close": 10.5, "volume": 4000.0})
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "10.5"}
+
+        cfg = {
+            "grid_trading": {
+                "scan_all_pairs": False,
+                "vol_spike_multiplier": 2.0,
+                "mtf_guard_enabled": False,
+            }
+        }
+        res = select_best_halal_asset(client, ["SOL/USDT"], config=cfg)
+        self.assertIsNotNone(res)
+        self.assertTrue(res["signal_triggered"])
+        self.assertIn("Volume Surge", res["setup_name"])
+
+    def test_mtf_guard_bear_suppression(self):
+        client = MagicMock()
+        # 15m klines show a bounce
+        mock_klines_15m = [
+            {"open": 10.0, "high": 10.2, "low": 9.9, "close": 10.0, "volume": 1000.0}
+            for _ in range(40)
+        ]
+        mock_klines_15m.append({"open": 10.0, "high": 10.5, "low": 10.0, "close": 10.5, "volume": 3500.0})
+        # 1h klines show a heavy downtrend (dropping from 25 to 10)
+        mock_klines_1h = [
+            {"open": 25.0 - (i * 0.4), "high": 25.0 - (i * 0.35), "low": 24.5 - (i * 0.4), "close": 24.8 - (i * 0.4), "volume": 2000.0}
+            for i in range(35)
+        ]
+
+        def klines_side_effect(symbol, *args, **kwargs):
+            tf = kwargs.get("timeframe") or kwargs.get("interval") or (args[0] if args else "15m")
+            if tf == "1h":
+                return mock_klines_1h
+            return mock_klines_15m
+
+        client.get_klines.side_effect = klines_side_effect
+        client.get_ticker.return_value = {"price": "10.5"}
+
+        cfg = {
+            "grid_trading": {
+                "scan_all_pairs": False,
+                "vol_spike_multiplier": 2.0,
+                "mtf_guard_enabled": True,
+            }
+        }
+        res = select_best_halal_asset(client, ["SOL/USDT"], config=cfg)
+        self.assertIsNotNone(res)
+        self.assertFalse(res["signal_triggered"])  # Suppressed by MTF Guard
+        self.assertIn("MTF Bear Block", res["setup_name"])
+
+    def test_partial_profit_scaling_execution(self):
+        client = MagicMock()
+        mock_klines = [
+            {"open": 150.0, "high": 152.0, "low": 149.0, "close": 150.0, "volume": 1000.0}
+            for _ in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+
+        self.config["grid_trading"]["trailing_take_profit"] = {"enabled": True, "callback_pct": 0.005}
+        self.config["grid_trading"]["partial_take_profit"] = {"enabled": True, "tp1_pct": 0.015, "ratio": 0.5}
+
+        pos_id = "partial-test-pos"
+        self.state["open_positions"][pos_id] = {
+            "position_id": pos_id,
+            "symbol": "SOL/USDT",
+            "direction": "BUY_SPOT",
+            "entry_time": "2026-10-13T10:00:00Z",
+            "entry_price": 100.0,
+            "curr_price": 100.0,
+            "stop_loss": 98.0,
+            "take_profit": 104.0,
+            "tp1_price": 101.8,
+            "partial_tp_taken": False,
+            "allocated_usdt": 20.0,
+            "unrealized_pnl": 0.0,
+            "unrealized_pnl_pct": 0.0,
+        }
+        self.state["balance_usdt"] = 80.0
+
+        # Price reaches 102.0 (above tp1_price of 101.8, below final 104.0)
+        client.get_ticker.return_value = {"price": "102.0"}
+        new_buys, harvested, status = run_grid_cycle(client, self.state, self.config)
+
+        self.assertEqual(len(harvested), 1)
+        self.assertIn("Partial TP1 Harvest", harvested[0]["reason"])
+        # Half of allocated (10.0) should remain open
+        self.assertIn(pos_id, self.state["open_positions"])
+        self.assertEqual(self.state["open_positions"][pos_id]["allocated_usdt"], 10.0)
+        self.assertTrue(self.state["open_positions"][pos_id]["partial_tp_taken"])
+        # Stop loss should be ratcheted to guaranteed win
+        self.assertGreaterEqual(self.state["open_positions"][pos_id]["stop_loss"], 100.3)
+
     def test_discover_top_momentum_symbols(self):
         client = MagicMock()
         client.fetch_all_tickers.return_value = {
@@ -213,9 +313,51 @@ class TestHalalGrid(BaseTestCase):
         runners = discover_top_momentum_symbols(client, min_volume_usdt=2000000.0, max_symbols=3)
         self.assertIn("PEPE/USDT", runners)
         self.assertIn("SOL/USDT", runners)
-        self.assertNotIn("LOWVOL/USDT", runners)   # filtered out by volume
-        self.assertNotIn("BTCDOWN/USDT", runners)  # filtered out by exclusion list
-        self.assertEqual(runners[0], "PEPE/USDT")  # highest percentage
+        self.assertNotIn("LOWVOL/USDT", runners)
+        self.assertNotIn("BTCDOWN/USDT", runners)
+        self.assertEqual(runners[0], "PEPE/USDT")
+
+
+    def test_dynamic_atr_tp_sl_scaling(self):
+        client = MagicMock()
+        # High volatility klines with ATR ~ 5%
+        mock_klines = [
+            {"open": 100.0, "high": 105.0, "low": 95.0, "close": 100.0 + (i * 0.1), "volume": 1000.0}
+            for i in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "110.0"}
+
+        cfg = {
+            "paths": self.get_test_paths(),
+            "timeframe": "15m",
+            "risk_management": {"fee_rate": 0.00075},
+            "grid_trading": {
+                "enabled": True,
+                "halal_basket": ["SOL/USDT"],
+                "macro_benchmark": "BTC/USDT",
+                "order_size_usdt": 20.0,
+                "max_grid_levels": 2,
+                "target_tp_pct": 0.02,
+                "stop_loss_pct": 0.03,
+                "atr_tp_multiplier": 1.8,
+                "atr_sl_multiplier": 1.2,
+                "require_confluence_signal": False,
+            },
+        }
+        state = {
+            "balance_usdt": 100.0,
+            "open_positions": {},
+            "grid_state": {"active_symbol": "SOL/USDT", "total_grid_profit_usdt": 0.0, "cycles_completed": 0, "grid_trades": 0},
+        }
+        new_buys, _, _ = run_grid_cycle(client, state, cfg)
+        self.assertEqual(len(new_buys), 1)
+        buy = new_buys[0]
+        # Volatility is high so TP must be expanded beyond baseline 2%
+        expected_min_tp = buy["entry_price"] * 1.03
+        self.assertGreater(buy["take_profit"], expected_min_tp)
+        self.assertIn("tp1_price", buy)
+        self.assertFalse(buy["partial_tp_taken"])
 
 
 if __name__ == "__main__":

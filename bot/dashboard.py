@@ -70,11 +70,14 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
             tp_val = p.get("take_profit", entry_p * 1.015)
             
             is_trailing = p.get("trailing_active", False)
+            is_partial_taken = p.get("partial_tp_taken", False)
             if is_trailing:
                 peak = p.get("peak_price", curr_p)
-                status_badge = f"🚀 TRAILING (Peak: ${peak:,.2f})"
+                status_badge = f"🚀 TRAILING RUNNER (50% Locked | Peak: ${peak:,.4f})" if is_partial_taken else f"🚀 TRAILING (Peak: ${peak:,.4f})"
             else:
-                status_badge = f"TP: ${tp_val:,.4f}"
+                tp1_val = p.get("tp1_price")
+                tp1_str = f"TP1: ${tp1_val:,.4f} | " if tp1_val else ""
+                status_badge = f"{tp1_str}TP2: ${tp_val:,.4f}"
 
             label = f"{sym} (L{lvl_num})"
             print(f"  [HOLD] {label:<14} Entry: ${entry_p:<8.4f} | Now: ${curr_p:<8.4f} | "
