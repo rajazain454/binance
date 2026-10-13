@@ -66,17 +66,49 @@ def execute_cycle(client, config, model_bundle=None):
         })
 
     basket = config.get("grid_trading", {}).get("halal_basket", ["SOL/USDT", "AVAX/USDT", "NEAR/USDT", "LINK/USDT"])
+    basket_prices = grid_status.get("basket_prices", {})
+    basket_vol = grid_status.get("basket_vol", {})
+    active_symbols = grid_status.get("active_symbols", [grid_status.get("active_symbol")])
+
     for sym in basket:
-        is_active = (sym == grid_status.get("active_symbol"))
+        is_active = (sym in active_symbols)
+        sym_p = basket_prices.get(sym, 0.0)
+        if sym_p <= 0.0:
+            try:
+                sym_p = client.get_ticker_price(sym) if hasattr(client, "get_ticker_price") else 0.0
+            except Exception:
+                sym_p = 0.0
+
         status_text = "HARVESTING" if is_active else "MONITORING"
+        vol_pct = basket_vol.get(sym, 0.0)
+        setup_desc = f"Halal Grid ({vol_pct:.1f}% ATR)" if vol_pct > 0 else "Halal Volatility Grid"
         analysis_rows.append({
             "symbol": sym,
-            "price": grid_status.get("current_price", 0.0) if is_active else 0.0,
+            "price": sym_p,
             "prob_win": 0.85 if is_active else 0.50,
             "strategy_score": 90.0 if is_active else 60.0,
-            "active_setups": ["Halal Volatility Grid"] if is_active else ["Monitoring Basket"],
+            "active_setups": [setup_desc] if is_active else ["Monitoring Dip"],
             "mtf_status": "BULL TREND" if is_active else "NORMAL",
             "status": status_text,
+        })
+
+    # Also include macro benchmark if available
+    macro_bench = config.get("grid_trading", {}).get("macro_benchmark", "BTC/USDT")
+    if macro_bench and macro_bench not in basket:
+        bench_p = basket_prices.get(macro_bench, 0.0)
+        if bench_p <= 0.0:
+            try:
+                bench_p = client.get_ticker_price(macro_bench) if hasattr(client, "get_ticker_price") else 0.0
+            except Exception:
+                bench_p = 0.0
+        analysis_rows.append({
+            "symbol": macro_bench,
+            "price": bench_p,
+            "prob_win": 0.70,
+            "strategy_score": 75.0,
+            "active_setups": ["Macro Benchmark"],
+            "mtf_status": "BENCHMARK",
+            "status": "MONITORING",
         })
 
     # Print CLI dashboard

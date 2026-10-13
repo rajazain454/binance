@@ -25,8 +25,14 @@
     "macro_benchmark": "BTC/USDT",
     "order_size_usdt": 12.0,
     "max_grid_levels": 5,
+    "max_active_coins": 2,
+    "max_levels_per_coin": 3,
     "min_step_pct": 0.012,
-    "min_cash_reserve_usdt": 15.0
+    "min_cash_reserve_usdt": 15.0,
+    "trailing_take_profit": {
+      "enabled": true,
+      "callback_pct": 0.005
+    }
   },
   "macro_regime_filter": {
     "enabled": true,
@@ -43,6 +49,7 @@
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,
     "fee_rate": 0.00075,
+    "bnb_fee_discount": true,
     "slippage_rate": 0.0005
   },
   "discord": {

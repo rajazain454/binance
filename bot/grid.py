@@ -92,6 +92,8 @@ def select_best_halal_asset(
     or None if all pairs fail the health check.
     """
     candidates = []
+    basket_prices = {}
+    basket_vol = {}
     
     # 1. Check macro benchmark regime if requested
     try:
@@ -100,6 +102,7 @@ def select_best_halal_asset(
             btc_closes = btc_df["close"].values
             btc_sma200 = float(btc_closes[-200:].mean())
             btc_curr = float(btc_closes[-1])
+            basket_prices[macro_benchmark] = btc_curr
             if btc_curr < btc_sma200 * 0.98:
                 logger.warning(
                     "[Macro Guard] Benchmark %s ($%s) below 200d SMA ($%s). Defensive mode active.",
@@ -112,6 +115,9 @@ def select_best_halal_asset(
         try:
             df = fetch_client_df(client, symbol, timeframe=timeframe, limit=120)
             if df.empty or len(df) < 30:
+                p = fetch_client_price(client, symbol)
+                if p > 0:
+                    basket_prices[symbol] = p
                 continue
 
             for c in ["open", "high", "low", "close", "volume"]:
@@ -120,11 +126,13 @@ def select_best_halal_asset(
 
             closes = df["close"].values
             curr_price = float(closes[-1])
+            basket_prices[symbol] = curr_price
 
             # Calculate ATR (14 bars)
             atr_s = calculate_atr(df, period=14)
             atr_val = float(atr_s.iloc[-1]) if not atr_s.empty and not pd.isna(atr_s.iloc[-1]) else curr_price * 0.015
             atr_pct = (atr_val / curr_price) * 100.0
+            basket_vol[symbol] = atr_pct
 
             # Trend Check: 50 EMA vs 20 EMA on current timeframe
             ema20 = float(df["close"].ewm(span=20, adjust=False).mean().iloc[-1])
@@ -156,11 +164,14 @@ def select_best_halal_asset(
             logger.error("Error evaluating symbol %s: %s", symbol, e)
 
     if not candidates:
-        # Fallback to the first symbol if available
         return None
 
     candidates.sort(key=lambda x: x["rank"], reverse=True)
-    return candidates[0]
+    top = candidates[0]
+    top["all_candidates"] = candidates
+    top["basket_prices"] = basket_prices
+    top["basket_vol"] = basket_vol
+    return top
 
 
 def calculate_grid_levels(
@@ -244,6 +255,9 @@ def run_grid_cycle(
     # 3. Check existing open grid inventory for take-profit exits
     harvested_profits = []
     remaining_open_positions = {}
+    trailing_cfg = grid_cfg.get("trailing_take_profit", {})
+    trailing_enabled = trailing_cfg.get("enabled", False)
+    callback_pct = trailing_cfg.get("callback_pct", 0.005)
     
     # We inspect state["open_positions"]
     open_positions = state.get("open_positions", {})
@@ -262,8 +276,35 @@ def run_grid_cycle(
         entry_price = pos["entry_price"]
         allocated_usdt = pos["allocated_usdt"]
 
-        # Did price hit or exceed the grid take-profit?
-        if p_price >= target_tp:
+        should_harvest = False
+        harvest_reason = ""
+
+        if trailing_enabled:
+            if pos.get("trailing_active", False):
+                if p_price > pos.get("peak_price", p_price):
+                    pos["peak_price"] = p_price
+
+                peak = pos.get("peak_price", p_price)
+                trailing_stop = peak * (1.0 - callback_pct)
+                floor_stop = max(target_tp * 0.998, entry_price * 1.003)
+
+                if p_price <= trailing_stop or p_price <= floor_stop:
+                    should_harvest = True
+                    harvest_reason = f"Trailing TP Harvest (Peak: ${peak:,.4f}, Drop: -{callback_pct*100:.2f}%)"
+            elif p_price >= target_tp:
+                # Arm trailing take profit
+                pos["trailing_active"] = True
+                pos["peak_price"] = p_price
+                logger.info(
+                    "🚀 [TRAILING TP ARMED] %s hit target TP ($%s). Tracking peak price (curr: $%s, callback: %.2f%%)...",
+                    symbol, f"{target_tp:,.4f}", f"{p_price:,.4f}", callback_pct * 100.0
+                )
+        else:
+            if p_price >= target_tp:
+                should_harvest = True
+                harvest_reason = f"Grid Level TP Hit (+{((p_price / entry_price) - 1.0) * 100.0:.2f}%)"
+
+        if should_harvest:
             # HARVEST PROFIT!
             exit_price = p_price
             gross_pnl = allocated_usdt * ((exit_price / entry_price) - 1.0)
@@ -295,7 +336,7 @@ def run_grid_cycle(
                     "net_pnl": net_pnl,
                     "pnl_pct": pnl_pct,
                     "confidence_pct": 100.0,
-                    "reason": f"Grid Level TP Hit (+{pnl_pct:.2f}%)",
+                    "reason": harvest_reason,
                     "outcome": "WIN",
                     "mode": config.get("trading_mode", "paper"),
                 }
@@ -311,12 +352,12 @@ def run_grid_cycle(
                 "net_pnl": net_pnl,
                 "pnl_pct": pnl_pct,
                 "allocated_usdt": allocated_usdt,
-                "reason": f"Grid Profit Harvest (+{pnl_pct:.2f}%)",
+                "reason": harvest_reason,
             }
             harvested_profits.append(harvested)
             logger.info(
-                "💰 [GRID HARVEST] %s Sold at $%s (+%.2f%%) | Net Profit: +$%s USDT",
-                symbol, f"{exit_price:,.2f}", pnl_pct, f"{net_pnl:.2f}"
+                "💰 [GRID HARVEST] %s Sold at $%s (+%.2f%%) | Net Profit: +$%s USDT | %s",
+                symbol, f"{exit_price:,.4f}", pnl_pct, f"{net_pnl:.2f}", harvest_reason
             )
         else:
             # Position stays open and tracks unrealized PnL
@@ -330,47 +371,64 @@ def run_grid_cycle(
     # 4. Check if we should execute a new grid buy level
     new_buys = []
     max_open_grid_levels = grid_cfg.get("max_grid_levels", 5)
+    max_active_coins = grid_cfg.get("max_active_coins", 2)
+    max_levels_per_coin = grid_cfg.get("max_levels_per_coin", 3)
     order_size_usdt = grid_cfg.get("order_size_usdt", 12.0)
     min_cash_reserve = grid_cfg.get("min_cash_reserve_usdt", 15.0)
 
-    # Active positions for this specific symbol
-    active_symbol_positions = [
-        p for p in state["open_positions"].values() if p["symbol"] == active_symbol
-    ]
-
-    # Can we open a new level?
+    coins_with_positions = set(p["symbol"] for p in state["open_positions"].values())
+    total_open_positions = len(state["open_positions"])
     available_cash = state["balance_usdt"] - min_cash_reserve
-    if len(active_symbol_positions) < max_open_grid_levels and available_cash >= order_size_usdt:
-        # Calculate dynamic grid levels
-        grid_levels = calculate_grid_levels(curr_price, atr, num_buy_levels=max_open_grid_levels)
-        
-        # Check if current price is at or below a level that isn't already covered
-        existing_entry_prices = [p["entry_price"] for p in active_symbol_positions]
-        
-        # If no position open yet, take the initial baseline entry
-        should_enter = False
-        target_tp_price = curr_price * (1.0 + max(0.012, (atr / curr_price) * 0.9))
 
-        if not active_symbol_positions:
+    candidates = top_asset.get("all_candidates", [top_asset])
+
+    for cand in candidates:
+        if total_open_positions >= max_open_grid_levels or available_cash < order_size_usdt:
+            break
+
+        cand_sym = cand["symbol"]
+        cand_positions = [p for p in state["open_positions"].values() if p["symbol"] == cand_sym]
+
+        # Respect max active coin diversification limit
+        if cand_sym not in coins_with_positions and len(coins_with_positions) >= max_active_coins:
+            continue
+
+        # Respect max levels per coin limit
+        if len(cand_positions) >= max_levels_per_coin:
+            continue
+
+        cand_price = cand["current_price"]
+        cand_atr = cand["atr"]
+        try:
+            live_cp = fetch_client_price(client, cand_sym)
+            if live_cp > 0:
+                cand_price = live_cp
+        except Exception:
+            pass
+
+        should_enter = False
+        target_tp_price = cand_price * (1.0 + max(0.012, (cand_atr / cand_price) * 0.9))
+
+        if not cand_positions:
             should_enter = True
-            entry_price = curr_price
+            entry_price = cand_price
         else:
-            # Check if price dropped significantly below lowest open position (e.g. 1.2% - 2%)
+            existing_entry_prices = [p["entry_price"] for p in cand_positions]
             lowest_entry = min(existing_entry_prices)
-            drop_from_lowest = ((curr_price / lowest_entry) - 1.0) * 100.0
-            step_threshold = -max(1.2, (atr / curr_price) * 75.0)
+            drop_from_lowest = ((cand_price / lowest_entry) - 1.0) * 100.0
+            step_threshold = -max(1.2, (cand_atr / cand_price) * 75.0)
 
             if drop_from_lowest <= step_threshold:
                 should_enter = True
-                entry_price = curr_price
-                target_tp_price = entry_price * (1.0 + max(0.012, (atr / curr_price) * 0.9))
+                entry_price = cand_price
+                target_tp_price = entry_price * (1.0 + max(0.012, (cand_atr / cand_price) * 0.9))
 
         if should_enter:
             pos_id = str(uuid.uuid4())[:8]
             state["balance_usdt"] -= order_size_usdt
             new_pos = {
                 "position_id": pos_id,
-                "symbol": active_symbol,
+                "symbol": cand_sym,
                 "direction": "BUY_SPOT",
                 "entry_time": datetime.now(timezone.utc).isoformat(),
                 "entry_price": entry_price,
@@ -380,19 +438,31 @@ def run_grid_cycle(
                 "allocated_usdt": order_size_usdt,
                 "unrealized_pnl": 0.0,
                 "unrealized_pnl_pct": 0.0,
+                "trailing_active": False,
+                "peak_price": entry_price,
             }
             state["open_positions"][pos_id] = new_pos
             grid_state["grid_trades"] += 1
+            coins_with_positions.add(cand_sym)
+            total_open_positions += 1
+            available_cash -= order_size_usdt
 
             new_buys.append(new_pos)
             logger.info(
                 "🟢 [GRID BUY] %s Bought $%s at $%s | Target TP: $%s",
-                active_symbol, f"{order_size_usdt:.2f}", f"{entry_price:,.2f}", f"{target_tp_price:,.2f}"
+                cand_sym, f"{order_size_usdt:.2f}", f"{entry_price:,.4f}", f"{target_tp_price:,.4f}"
             )
+            break
+
+    active_symbols = list(dict.fromkeys([p["symbol"] for p in state["open_positions"].values()]))
+    if not active_symbols:
+        active_symbols = [active_symbol]
+    grid_state["active_symbols"] = active_symbols
 
     grid_status = {
         "status": "ACTIVE_HARVESTING",
         "active_symbol": active_symbol,
+        "active_symbols": active_symbols,
         "current_price": curr_price,
         "atr_pct": top_asset["atr_pct"],
         "open_levels": len(state["open_positions"]),
@@ -400,6 +470,8 @@ def run_grid_cycle(
         "total_profit_booked": grid_state["total_grid_profit_usdt"],
         "cycles_completed": grid_state["cycles_completed"],
         "available_cash": state["balance_usdt"],
+        "basket_prices": top_asset.get("basket_prices", {}),
+        "basket_vol": top_asset.get("basket_vol", {}),
     }
 
     return new_buys, harvested_profits, grid_status

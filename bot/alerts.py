@@ -137,9 +137,14 @@ def send_radar_status_alert(state, config):
 
     total_equity = state["balance_usdt"]
     active_str = ""
-    if state.get("open_positions"):
+    open_pos = state.get("open_positions", {})
+    if open_pos:
         pos_lines = []
-        for psym, p in state["open_positions"].items():
+        sym_counters = {}
+        for pos_id, p in open_pos.items():
+            sym = p.get("symbol", "ASSET")
+            sym_counters[sym] = sym_counters.get(sym, 0) + 1
+            lvl_idx = sym_counters[sym]
             c_p = p.get("curr_price", p["entry_price"])
             u_pnl = p.get("unrealized_pnl", 0.0)
             u_pct = p.get("unrealized_pnl_pct", 0.0)
@@ -147,8 +152,9 @@ def send_radar_status_alert(state, config):
             tp_target = p.get("take_profit", p["entry_price"] * 1.015)
             sl_val = p.get("stop_loss", p["entry_price"] * 0.95)
             gauge = render_trade_progress(c_p, p["entry_price"], tp_target, sl_val)
+            trailing_str = f" | 🚀 *Trailing Peak: ${p.get('peak_price', c_p):,.4f}*" if p.get("trailing_active") else ""
             pos_lines.append(
-                f"• **{p['symbol']}**: Live Price `${c_p:,.4f}` (Bought at `${p['entry_price']:,.4f}`) | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%)\n"
+                f"• **{sym} (Level {lvl_idx})**: Live `${c_p:,.4f}` (Entry `${p['entry_price']:,.4f}`) | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%){trailing_str}\n"
                 f"  🎯 Target: {gauge}"
             )
         active_str = "\n".join(pos_lines)
@@ -156,13 +162,23 @@ def send_radar_status_alert(state, config):
         active_str = "🛡️ 100% Cash Defense (Waiting for next value dip to buy)"
 
     grid_st = state.get("grid_state", {})
+    active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "NEAR/USDT")]
+    syms_display = ", ".join(active_syms) if isinstance(active_syms, list) else str(active_syms)
+
+    total_trades = state.get("trade_count", 0)
+    wins = state.get("win_count", 0)
+    wr = (wins / total_trades * 100) if total_trades > 0 else 0.0
+
+    bnb_discount = config.get("risk_management", {}).get("bnb_fee_discount", True)
+    fee_tag = "0.075% (BNB -25% applied)" if bnb_discount else "0.100%"
+
     fields = [
         {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
-        {"name": "🎯 Active Grid Pair", "value": f"**{grid_st.get('active_symbol', 'NEAR/USDT')}**", "inline": True},
-        {"name": "💰 Harvested Grid Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
+        {"name": "🎯 Active Grid Pair(s)", "value": f"**{syms_display}**", "inline": True},
+        {"name": "💰 Booked Grid Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT** ({wins} Wins | {wr:.0f}% WR)", "inline": True},
         {"name": "📊 Active Holdings & Real-Time Target Gauge", "value": active_str, "inline": False},
-        {"name": "🕌 Shariah Compliance", "value": "100% Spot Asset Ownership (*Qabd*) — Zero Debt/Riba", "inline": False},
-        {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking price action & order book every cycle", "inline": False},
+        {"name": "💎 Capital Efficiency", "value": f"VIP0 Spot Fee: **{fee_tag}** | 100% Halal Spot Asset Ownership (*Qabd*)", "inline": False},
+        {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking order book every cycle", "inline": False},
     ]
     title = "📡 Live Halal Grid Status & Target Progress"
     return send_discord_alert(webhook, title, fields, color=3447003)

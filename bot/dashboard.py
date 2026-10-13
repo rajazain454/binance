@@ -9,87 +9,95 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     balance = state["balance_usdt"]
     open_pos = state.get("open_positions", {})
     mode = config.get("trading_mode", "paper").upper()
-    use_mtf = config.get("mtf_confluence", {}).get("enabled", True)
 
     total_unrealized = sum(p.get("unrealized_pnl", 0.0) for p in open_pos.values())
     total_alloc = sum(p.get("allocated_usdt", 0.0) for p in open_pos.values())
     total_equity = balance + total_alloc + total_unrealized
 
-    print("=" * 108)
-    print(f"  BINANCE HALAL SPOT VOLATILITY GRID BOT  |  MODE: {mode}  |  TIMEFRAME: {config['timeframe']}")
-    print("=" * 108)
+    W = 90
+    print("=" * W)
+    print(f"  BINANCE HALAL SPOT VOLATILITY GRID BOT  |  MODE: {mode}  |  TF: {config['timeframe']}")
+    print("=" * W)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)
     wr = (win_cnt / total_cnt * 100) if total_cnt > 0 else 0.0
 
-    print(f"  Equity (MtM): ${total_equity:,.2f} USDT  |  Free Cash: ${balance:,.2f}  |  Active Alloc: ${total_alloc:,.2f}  |  Unrealized: ${total_unrealized:+,.2f}")
-    print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Circuit Breaker: {cb_status}  |  Total Trades: {total_cnt}  |  Win Rate: {wr:.1f}%")
+    print(f"  Equity (MtM): ${total_equity:,.2f} USDT  |  Free: ${balance:,.2f}  |  Alloc: ${total_alloc:,.2f}  |  Unr: ${total_unrealized:+,.2f}")
+    print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Grid State: {cb_status}  |  Win Rate: {wr:.1f}% ({win_cnt}/{total_cnt})")
+
+    # BNB Fee Discount & Shariah Status
+    bnb_discount = config.get("risk_management", {}).get("bnb_fee_discount", True)
+    fee_tag = "0.075% (BNB -25% Active)" if bnb_discount else f"{config.get('risk_management', {}).get('fee_rate', 0.001)*100:.3f}%"
+    print(f"  Shariah: 100% Spot Asset Ownership (*Qabd*)  |  Fee Tier: VIP0 ({fee_tag})")
+
     macro_regime = state.get("macro_regime")
     if macro_regime:
-        print(f"  Macro Regime: {macro_regime}")
+        print(f"  Regime: {macro_regime}")
     grid_st = state.get("grid_state")
     if grid_st:
-        print(f"  Halal Spot Grid: Active Pair: {grid_st.get('active_symbol', 'SOL/USDT')} | "
-              f"Locked Grid Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT | "
-              f"Cycles Completed: {grid_st.get('cycles_completed', 0)}")
-    print("-" * 108)
+        active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "NEAR/USDT")]
+        syms_display = ", ".join(active_syms) if isinstance(active_syms, list) else str(active_syms)
+        print(f"  Grid Pair(s): {syms_display}  |  Harvested Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT (Cycles: {grid_st.get('cycles_completed', 0)})")
+    print("-" * W)
 
     # Market Radar Table with Strategy Setups
-    print(f"{'Symbol':<10} {'Price':>10} {'AI Win Prob':>12} {'Strategy Setup':<34} {'4h Trend':>10} {'Status':<15}")
-    print("-" * 108)
+    print(f"  {'Symbol':<10} {'Price':>11} {'AI Win%':>9} {'Volatility / Setup':<32} {'Status':<16}")
+    print("  " + "-" * (W - 4))
     for r in analysis_rows:
-        conv_tag = "[BUY TRIGGER]" if r["status"] == "BUY TRIGGER" else (r["status"])
+        conv_tag = "[BUY TRIGGER]" if r["status"] == "BUY TRIGGER" else f"[{r['status']}]"
         setups_str = ", ".join(r.get("active_setups", [])) if r.get("active_setups") else "Consolidating"
-        if len(setups_str) > 32:
-            setups_str = setups_str[:29] + "..."
-        print(f"{r['symbol']:<10} {r['price']:>10.4f} {r['prob_win']:>11.1%} {setups_str:<34} "
-              f"{r['mtf_status']:>10} {conv_tag:<15}")
+        if len(setups_str) > 30:
+            setups_str = setups_str[:27] + "..."
+        price_str = f"${r['price']:,.4f}" if r['price'] > 0 else "Scanning..."
+        print(f"  {r['symbol']:<10} {price_str:>11} {r['prob_win']:>8.1%} {setups_str:<32} {conv_tag:<16}")
 
     # Active Holdings
-    print("\n" + "-" * 108)
-    print("  ACTIVE OPEN POSITIONS & LIVE MARK-TO-MARKET PERFORMANCE")
-    print("-" * 108)
+    print("\n" + "-" * W)
+    print("  ACTIVE SPOT HOLDINGS & REAL-TIME MARK-TO-MARKET")
+    print("-" * W)
     if not open_pos:
-        print("  No active positions. Scanning Binance market for high-probability setups...")
+        print("  100% Cash Defense. Monitoring halal basket for value dip oscillation...")
     else:
-        for sym, p in open_pos.items():
+        sym_counts = {}
+        for pos_id, p in open_pos.items():
+            sym = p.get("symbol", "ASSET")
+            sym_counts[sym] = sym_counts.get(sym, 0) + 1
+            lvl_num = sym_counts[sym]
             entry_p = p["entry_price"]
             curr_p = p.get("curr_price", entry_p)
             unr_pnl = p.get("unrealized_pnl", 0.0)
             unr_pct = p.get("unrealized_pnl_pct", 0.0)
-            tp1_val = p.get("take_profit_1") or p.get("take_profit") or (entry_p * 1.015)
-            tp2_val = p.get("take_profit_2") or (tp1_val * 1.015)
-            tp1_status = "LOCKED [BREAKEVEN]" if p.get("tp1_reached") else f"${tp1_val:.4f}"
-            sl_val = p.get("stop_loss", entry_p * 0.95)
-            print(f"  [HOLD] {sym:<9} Entry: ${entry_p:<9.4f} | Now: ${curr_p:<9.4f} | Unr: ${unr_pnl:+7.2f} ({unr_pct:+6.2f}%) | "
-                  f"Stop: ${sl_val:<9.4f} | TP1: {tp1_status:<17} | TP2: ${tp2_val:<9.4f}")
+            tp_val = p.get("take_profit", entry_p * 1.015)
+            
+            is_trailing = p.get("trailing_active", False)
+            if is_trailing:
+                peak = p.get("peak_price", curr_p)
+                status_badge = f"🚀 TRAILING (Peak: ${peak:,.2f})"
+            else:
+                status_badge = f"TP: ${tp_val:,.4f}"
+
+            label = f"{sym} (L{lvl_num})"
+            print(f"  [HOLD] {label:<14} Entry: ${entry_p:<8.4f} | Now: ${curr_p:<8.4f} | "
+                  f"PnL: ${unr_pnl:+6.2f} ({unr_pct:+5.2f}%) | {status_badge}")
 
     # Closed signals & events
     if closed_signals:
-        print("\n" + "-" * 88)
-        print("  RECENT CLOSED TRADES & POSITION EVENTS")
-        print("-" * 88)
+        print("\n" + "-" * W)
+        print("  RECENT CLOSED TRADES & HARVEST EVENTS")
+        print("-" * W)
         for cs in closed_signals:
-            action = cs.get("action", "")
-            if action == "BREAKEVEN LOCK (SMALL ACCOUNT)":
-                tag = "[🛡️ BE-LOCK]"
-            elif "PARTIAL" in action:
-                tag = "[⚡ PARTIAL TP1]"
-            elif cs.get("outcome") == "WIN":
-                tag = "[+WIN]"
-            else:
-                tag = "[-LOSS]"
+            tag = "[+WIN]" if cs.get("outcome") == "WIN" else "[-LOSS]"
             pid = cs.get("position_id", "")
-            pid_str = f" [{pid[:8]}]" if pid else ""
-            print(f"  {tag}{pid_str} {cs['symbol']} Net PnL: ${cs['net_pnl']:+,.2f} ({cs['pnl_pct']:+.2f}%) | {cs['reason']}")
+            pid_str = f" [{pid[:6]}]" if pid else ""
+            print(f"  {tag}{pid_str} {cs['symbol']} Booked PnL: ${cs['net_pnl']:+,.2f} ({cs['pnl_pct']:+.2f}%) | {cs['reason']}")
 
     # New entries
     if new_signals:
-        print("\n" + "-" * 88)
+        print("\n" + "-" * W)
         print("  NEW EXECUTED ORDERS")
-        print("-" * 88)
+        print("-" * W)
         for ns in new_signals:
-            strat_info = ns.get("strategy_setups", "Quant Confluence")
-            print(f"  [NEW ORDER] {ns['action']} {ns['symbol']} @ ${ns['price']:.4f} | Size: ${ns['size_usdt']} USDT | Conf: {ns['confidence_pct']}% | Strategy: {strat_info}")
+            strat_info = ns.get("strategy_setups", "Halal Grid")
+            print(f"  [BUY] {ns['symbol']} @ ${ns['price']:,.4f} | Size: ${ns['size_usdt']} USDT | TP: ${ns.get('tp2', 0.0):,.4f} | {strat_info}")
 
-    print("=" * 88 + "\n")
+    print("=" * W + "\n")
