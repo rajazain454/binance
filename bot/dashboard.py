@@ -16,7 +16,7 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     total_equity = balance + total_alloc + total_unrealized
 
     print("=" * 108)
-    print(f"  BINANCE QUANTITATIVE AI TRADING BOT  |  MODE: {mode}  |  TF: {config['timeframe']} (4H MTF: {'ON' if use_mtf else 'OFF'})")
+    print(f"  BINANCE HALAL SPOT VOLATILITY GRID BOT  |  MODE: {mode}  |  TIMEFRAME: {config['timeframe']}")
     print("=" * 108)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)
