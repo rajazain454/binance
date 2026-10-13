@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -358,6 +359,82 @@ class TestHalalGrid(BaseTestCase):
         self.assertGreater(buy["take_profit"], expected_min_tp)
         self.assertIn("tp1_price", buy)
         self.assertFalse(buy["partial_tp_taken"])
+
+    def test_upper_wick_rejection_filter(self):
+        client = MagicMock()
+        # Create klines where last candle is green (close > open) but has a massive 60% upper wick (shooting star)
+        # Open 10.0, Low 10.0, Close 10.4, High 11.0 (Range 1.0, Upper wick = 11.0 - 10.4 = 0.60 -> 60%)
+        mock_klines = [
+            {"open": 10.0, "high": 10.2, "low": 9.9, "close": 10.0, "volume": 1000.0}
+            for _ in range(40)
+        ]
+        mock_klines.append({"open": 10.0, "high": 11.0, "low": 10.0, "close": 10.4, "volume": 3500.0})
+        client.get_klines.return_value = mock_klines
+        client.get_ticker.return_value = {"price": "10.4"}
+
+        cfg = {
+            "grid_trading": {
+                "scan_all_pairs": False,
+                "vol_spike_multiplier": 2.0,
+                "mtf_guard_enabled": False,
+                "anti_fakeout": {"enabled": True, "max_wick_ratio": 0.35},
+            }
+        }
+        res = select_best_halal_asset(client, ["SOL/USDT"], config=cfg)
+        self.assertIsNotNone(res)
+        # Signal should NOT trigger because the upper wick is 60% > 35%
+        self.assertFalse(res["signal_triggered"])
+        self.assertIn("Topping Wick", res["setup_name"])
+
+    def test_time_decay_stale_exit(self):
+        client = MagicMock()
+        mock_klines = [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1000.0}
+            for _ in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+
+        # Set position entered 6 hours ago
+        six_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat()
+        pos_id = "stale-pos"
+        self.state["open_positions"][pos_id] = {
+            "position_id": pos_id,
+            "symbol": "SOL/USDT",
+            "direction": "BUY_SPOT",
+            "entry_time": six_hours_ago,
+            "entry_price": 100.0,
+            "curr_price": 100.2,
+            "stop_loss": 98.0,
+            "take_profit": 103.0,
+            "allocated_usdt": 20.0,
+            "unrealized_pnl": 0.04,
+            "unrealized_pnl_pct": 0.2,
+            "trailing_active": False,
+        }
+        self.config["grid_trading"]["stale_exit"] = {"enabled": True, "hours": 4.0, "max_pnl_threshold_pct": 1.0}
+        client.get_ticker.return_value = {"price": "100.2"}
+
+        new_buys, harvested, status = run_grid_cycle(client, self.state, self.config)
+        self.assertEqual(len(harvested), 1)
+        self.assertIn("Stale Capital Exit", harvested[0]["reason"])
+        self.assertNotIn(pos_id, self.state["open_positions"])
+
+    def test_spread_guard_rejection(self):
+        client = MagicMock()
+        mock_klines = [
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1000.0}
+            for _ in range(100)
+        ]
+        client.get_klines.return_value = mock_klines
+        # Return ticker with 0.5% spread (bid 100, ask 100.5)
+        client.get_ticker.return_value = {"price": "100.0", "bid": 100.0, "ask": 100.5}
+
+        self.config["grid_trading"]["spread_guard"] = {"enabled": True, "max_spread_pct": 0.0015}
+        self.config["grid_trading"]["require_confluence_signal"] = False
+
+        new_buys, _, _ = run_grid_cycle(client, self.state, self.config)
+        # Should be rejected because 0.5% > 0.15% max spread
+        self.assertEqual(len(new_buys), 0)
 
 
 if __name__ == "__main__":

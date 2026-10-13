@@ -49,6 +49,23 @@
     "trailing_take_profit": {
       "enabled": true,
       "callback_pct": 0.005
+    },
+    "anti_fakeout": {
+      "enabled": true,
+      "max_wick_ratio": 0.35
+    },
+    "stale_exit": {
+      "enabled": true,
+      "hours": 4.0,
+      "max_pnl_threshold_pct": 1.0
+    },
+    "spread_guard": {
+      "enabled": true,
+      "max_spread_pct": 0.0015
+    },
+    "correlation_guard": {
+      "enabled": true,
+      "max_correlation": 0.85
     }
   },
   "macro_regime_filter": {

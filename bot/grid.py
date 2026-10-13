@@ -211,12 +211,23 @@ def select_best_halal_asset(
             ema21 = float(df["close"].ewm(span=21, adjust=False).mean().iloc[-1])
             ema50 = float(df["close"].ewm(span=50, adjust=False).mean().iloc[-1])
 
-            # Candle confirmation
+            # Candle confirmation & Anti-Fakeout Wick Analysis
             last_open = float(df["open"].iloc[-1])
             last_close = float(df["close"].iloc[-1])
+            last_high = float(df["high"].iloc[-1]) if "high" in df.columns else last_close
+            last_low = float(df["low"].iloc[-1]) if "low" in df.columns else last_open
             prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else last_close
             is_green_candle = (last_close > last_open)
             is_higher_close = (last_close >= prev_close)
+
+            candle_range = last_high - last_low
+            upper_wick = last_high - max(last_open, last_close)
+            wick_ratio = (upper_wick / candle_range) if candle_range > 0 else 0.0
+
+            anti_fakeout_cfg = config.get("grid_trading", {}).get("anti_fakeout", {}) if config else {}
+            anti_fakeout_enabled = anti_fakeout_cfg.get("enabled", True)
+            max_wick_ratio = anti_fakeout_cfg.get("max_wick_ratio", 0.35)
+            is_healthy_close = (wick_ratio <= max_wick_ratio) if anti_fakeout_enabled else True
 
             # Volume expansion & Anomaly Spike Detection
             vol_series = df["volume"] if "volume" in df.columns else pd.Series([1.0] * len(df))
@@ -230,7 +241,7 @@ def select_best_halal_asset(
             # SETUP 1: Oversold Reversal Bounce (Sniper Dip Entry)
             # -------------------------------------------------------------
             is_oversold = (min_recent_rsi <= 36.0 or last_close <= bb_lower_val * 1.005)
-            bounce_confirmed = is_green_candle and is_higher_close
+            bounce_confirmed = is_green_candle and is_higher_close and is_healthy_close
             signal_oversold = is_oversold and bounce_confirmed
 
             # -------------------------------------------------------------
@@ -238,15 +249,17 @@ def select_best_halal_asset(
             # -------------------------------------------------------------
             is_trend_aligned = (ema9 > ema21 > ema50) or (ema9 > ema21 and curr_price > ema50)
             is_momentum_rsi = (50.0 <= curr_rsi <= 68.0)
-            signal_momentum = is_trend_aligned and is_momentum_rsi and is_green_candle and vol_expansion
+            signal_momentum = is_trend_aligned and is_momentum_rsi and is_green_candle and vol_expansion and is_healthy_close
 
             # -------------------------------------------------------------
             # SETUP 3: Institutional Volume Surge Inflow (Breakout Ignition)
             # -------------------------------------------------------------
-            signal_vol_surge = (vol_ratio >= vol_spike_multiplier) and is_green_candle and (45.0 <= curr_rsi <= 78.0) and (curr_price >= ema21)
+            signal_vol_surge = (vol_ratio >= vol_spike_multiplier) and is_green_candle and is_healthy_close and (45.0 <= curr_rsi <= 78.0) and (curr_price >= ema21)
 
             signal_triggered = False
             setup_name = f"Consolidating (RSI {curr_rsi:.0f})"
+            if not is_healthy_close and is_green_candle:
+                setup_name = f"Topping Wick ({wick_ratio*100:.0f}%)"
             prob_win = 0.50
             total_rank = 0.0
 
@@ -537,6 +550,28 @@ def run_grid_cycle(
             outcome = "WIN" if p_price >= entry_price else "LOSS"
             harvest_reason = "Breakeven Guard Exit" if p_price >= entry_price else f"Risk Guard Stop Loss (-{abs(gain_pct)*100:.2f}%)"
 
+        # 3d. STALE CAPITAL TIME-DECAY EXIT (Free capital if flat for > 4 hours)
+        stale_cfg = grid_cfg.get("stale_exit", {})
+        if not should_exit and stale_cfg.get("enabled", True):
+            entry_time_str = pos.get("entry_time")
+            if entry_time_str:
+                try:
+                    entry_dt = datetime.fromisoformat(entry_time_str.replace("Z", "+00:00"))
+                    now_dt = datetime.now(timezone.utc)
+                    hours_held = (now_dt - entry_dt).total_seconds() / 3600.0
+                    stale_limit_hours = stale_cfg.get("hours", 4.0)
+                    threshold_pct = stale_cfg.get("max_pnl_threshold_pct", 1.0) / 100.0
+                    if hours_held >= stale_limit_hours and not pos.get("trailing_active", False) and abs(gain_pct) <= threshold_pct:
+                        should_exit = True
+                        outcome = "WIN" if p_price >= entry_price else "LOSS"
+                        harvest_reason = f"Stale Capital Exit (Held {hours_held:.1f}h without breakout)"
+                        logger.info(
+                            "⏳ [STALE EXIT] %s held for %.1fh without breakout. Exiting at $%s to free capital.",
+                            symbol, hours_held, f"{p_price:,.4f}"
+                        )
+                except Exception:
+                    pass
+
         if should_exit:
             exit_price = p_price
             gross_pnl = allocated_usdt * ((exit_price / entry_price) - 1.0)
@@ -631,6 +666,57 @@ def run_grid_cycle(
         require_confluence = grid_cfg.get("require_confluence_signal", False)
         if require_confluence and not cand.get("signal_triggered", False):
             continue
+
+        # Bid-Ask Spread Guard (Micro-Slippage Defense)
+        spread_cfg = grid_cfg.get("spread_guard", {})
+        if spread_cfg.get("enabled", True):
+            max_spread = spread_cfg.get("max_spread_pct", 0.0015)
+            spread_ok = True
+            if hasattr(client, "get_ticker"):
+                try:
+                    tk = client.get_ticker(cand_sym)
+                    if isinstance(tk, dict):
+                        bid = float(tk.get("bid", 0.0) or 0.0)
+                        ask = float(tk.get("ask", 0.0) or 0.0)
+                        if bid > 0 and ask > 0:
+                            spread = (ask - bid) / bid
+                            if spread > max_spread:
+                                spread_ok = False
+                                logger.info(
+                                    "🛡️ [SPREAD GUARD] %s spread %.3f%% exceeds limit %.3f%%. Skipping.",
+                                    cand_sym, spread * 100.0, max_spread * 100.0
+                                )
+                except Exception:
+                    pass
+            if not spread_ok:
+                continue
+
+        # Correlation & Exposure Diversification Guard
+        corr_cfg = grid_cfg.get("correlation_guard", {})
+        if corr_cfg.get("enabled", True) and coins_with_positions:
+            max_corr = corr_cfg.get("max_correlation", 0.85)
+            high_corr_detected = False
+            for open_sym in coins_with_positions:
+                try:
+                    df_cand = fetch_client_df(client, cand_sym, timeframe=timeframe, limit=30)
+                    df_open = fetch_client_df(client, open_sym, timeframe=timeframe, limit=30)
+                    if len(df_cand) >= 20 and len(df_open) >= 20:
+                        c_series = df_cand["close"].pct_change().dropna()
+                        o_series = df_open["close"].pct_change().dropna()
+                        if c_series.std() > 1e-7 and o_series.std() > 1e-7:
+                            min_len = min(len(c_series), len(o_series))
+                            corr_val = float(c_series.iloc[-min_len:].corr(o_series.iloc[-min_len:]))
+                            if not np.isnan(corr_val) and corr_val >= max_corr:
+                                high_corr_detected = True
+                                logger.info(
+                                    "🛡️ [CORRELATION GUARD] %s correlation (%.2f) with %s exceeds limit (%.2f). Diversifying.",
+                                    cand_sym, corr_val, open_sym, max_corr
+                                )
+                                break
+                except Exception:
+                    pass
+            if high_corr_detected:
+                continue
 
         cand_price = cand["current_price"]
         cand_atr = cand["atr"]
