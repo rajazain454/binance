@@ -13,9 +13,11 @@
     "LINK/USDT",
     "BTC/USDT"
   ],
-  "timeframe": "1h",
+  "timeframe": "15m",
   "grid_trading": {
     "enabled": true,
+    "strategy_name": "Halal 15m Confluence Scalper",
+    "require_confluence_signal": true,
     "halal_basket": [
       "SOL/USDT",
       "AVAX/USDT",
@@ -23,12 +25,15 @@
       "LINK/USDT"
     ],
     "macro_benchmark": "BTC/USDT",
-    "order_size_usdt": 12.0,
-    "max_grid_levels": 5,
+    "order_size_usdt": 25.0,
+    "max_grid_levels": 2,
     "max_active_coins": 2,
-    "max_levels_per_coin": 3,
-    "min_step_pct": 0.012,
-    "min_cash_reserve_usdt": 15.0,
+    "max_levels_per_coin": 1,
+    "min_step_pct": 0.015,
+    "min_cash_reserve_usdt": 25.0,
+    "target_tp_pct": 0.020,
+    "stop_loss_pct": 0.022,
+    "breakeven_trigger_pct": 0.010,
     "trailing_take_profit": {
       "enabled": true,
       "callback_pct": 0.005
@@ -44,7 +49,7 @@
   "risk_management": {
     "capital_usdt": 100.0,
     "min_notional_usdt": 5.0,
-    "max_open_trades": 5,
+    "max_open_trades": 2,
     "min_cash_reserve_pct": 0.15,
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,

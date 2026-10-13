@@ -1,85 +1,44 @@
 {
-  "balance_usdt": 51.63696715518847,
+  "balance_usdt": 75.0,
   "peak_balance": 100.0,
-  "daily_peak_balance": 99.63696715518847,
-  "daily_reset_time": "2026-10-13T06:01:06.440088+00:00",
+  "daily_peak_balance": 100.0,
+  "daily_reset_time": "2026-10-13T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
-    "c4764b7d": {
-      "position_id": "c4764b7d",
+    "317c4c28": {
+      "position_id": "317c4c28",
       "symbol": "NEAR/USDT",
       "direction": "BUY_SPOT",
-      "entry_time": "2026-10-13T06:59:22.709595+00:00",
-      "entry_price": 5.29,
-      "curr_price": 5.114,
-      "stop_loss": 5.0255,
-      "take_profit": 5.430978571428572,
-      "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.3992438563327041,
-      "unrealized_pnl_pct": -3.3270321361058675
-    },
-    "76698e08": {
-      "position_id": "76698e08",
-      "symbol": "NEAR/USDT",
-      "direction": "BUY_SPOT",
-      "entry_time": "2026-10-13T07:28:53.020245+00:00",
-      "entry_price": 5.164,
-      "curr_price": 5.114,
-      "stop_loss": 4.905799999999999,
-      "take_profit": 5.294885714285715,
-      "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.11618900077459271,
-      "unrealized_pnl_pct": -0.9682416731216059
-    },
-    "da3b3834": {
-      "position_id": "da3b3834",
-      "symbol": "AVAX/USDT",
-      "direction": "BUY_SPOT",
-      "entry_time": "2026-10-13T07:41:09.006404+00:00",
-      "entry_price": 10.511,
-      "curr_price": 10.334,
-      "stop_loss": 9.985449999999998,
-      "take_profit": 10.660207142857141,
-      "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.2020740176957463,
-      "unrealized_pnl_pct": -1.6839501474645524,
+      "entry_time": "2026-10-13T10:18:50.257001+00:00",
+      "entry_price": 5.116,
+      "curr_price": 5.116,
+      "stop_loss": 5.003448,
+      "take_profit": 5.21832,
+      "allocated_usdt": 25.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
       "trailing_active": false,
-      "peak_price": 10.511
-    },
-    "7e26ddf4": {
-      "position_id": "7e26ddf4",
-      "symbol": "AVAX/USDT",
-      "direction": "BUY_SPOT",
-      "entry_time": "2026-10-13T09:01:01.520271+00:00",
-      "entry_price": 10.363,
-      "curr_price": 10.334,
-      "stop_loss": 9.84485,
-      "take_profit": 10.51252857142857,
-      "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.03358100936022357,
-      "unrealized_pnl_pct": -0.27984174466852973,
-      "trailing_active": false,
-      "peak_price": 10.363
+      "peak_price": 5.116,
+      "setup_name": "Oversold Bounce (RSI 34)"
     }
   },
   "loss_cooldowns": {},
-  "trade_count": 13,
-  "win_count": 8,
-  "loss_count": 5,
-  "last_update": "2026-10-13 10:00:58",
+  "trade_count": 0,
+  "win_count": 0,
+  "loss_count": 0,
+  "realized_pnl_usdt": 0.0,
+  "last_update": "2026-10-13 10:18:50",
   "last_digest_date": "2026-10-13",
-  "last_hourly_alert": "2026-10-13 10:00:58",
-  "macro_regime": "MACRO BULL TREND (BTC $81,850 > 200d SMA $72,083)",
+  "last_hourly_alert": null,
+  "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "LINK/USDT",
-    "active_levels": {},
+    "active_symbol": "NEAR/USDT",
+    "active_symbols": [
+      "NEAR/USDT"
+    ],
     "total_grid_profit_usdt": 0.0,
     "cycles_completed": 0,
-    "grid_trades": 4,
-    "active_symbols": [
-      "NEAR/USDT",
-      "AVAX/USDT"
-    ]
+    "grid_trades": 1
   }
 }

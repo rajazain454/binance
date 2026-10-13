@@ -159,11 +159,11 @@ def send_radar_status_alert(state, config):
             )
         active_str = "\n".join(pos_lines)
     else:
-        active_str = "🛡️ 100% Cash Defense (Waiting for next value dip to buy)"
+        active_str = "🛡️ 100% Cash Defense (Scanning 15m candles for confirmed oversold bounce)"
 
     grid_st = state.get("grid_state", {})
-    active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "NEAR/USDT")]
-    syms_display = ", ".join(active_syms) if isinstance(active_syms, list) else str(active_syms)
+    active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "SOL/USDT")]
+    syms_display = ", ".join(active_syms) if (isinstance(active_syms, list) and active_syms) else "Scanning Basket"
 
     total_trades = state.get("trade_count", 0)
     wins = state.get("win_count", 0)
@@ -174,12 +174,12 @@ def send_radar_status_alert(state, config):
 
     fields = [
         {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
-        {"name": "🎯 Active Grid Pair(s)", "value": f"**{syms_display}**", "inline": True},
-        {"name": "💰 Booked Grid Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT** ({wins} Wins | {wr:.0f}% WR)", "inline": True},
+        {"name": "🎯 Active Scalp Pair(s)", "value": f"**{syms_display}**", "inline": True},
+        {"name": "💰 Booked Scalp Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT** ({wins} Wins / {total_trades} Trades)", "inline": True},
         {"name": "📊 Active Holdings & Real-Time Target Gauge", "value": active_str, "inline": False},
         {"name": "💎 Capital Efficiency", "value": f"VIP0 Spot Fee: **{fee_tag}** | 100% Halal Spot Asset Ownership (*Qabd*)", "inline": False},
-        {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking order book every cycle", "inline": False},
+        {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking 15m candle closes & order book", "inline": False},
     ]
-    title = "📡 Live Halal Grid Status & Target Progress"
+    title = "📡 Live Halal 15m Scalper Status & Target Progress"
     return send_discord_alert(webhook, title, fields, color=3447003)
 

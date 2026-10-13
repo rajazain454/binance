@@ -69,6 +69,7 @@ def execute_cycle(client, config, model_bundle=None):
     basket_prices = grid_status.get("basket_prices", {})
     basket_vol = grid_status.get("basket_vol", {})
     active_symbols = grid_status.get("active_symbols", [grid_status.get("active_symbol")])
+    cand_details = grid_status.get("candidate_details", {})
 
     for sym in basket:
         is_active = (sym in active_symbols)
@@ -79,16 +80,19 @@ def execute_cycle(client, config, model_bundle=None):
             except Exception:
                 sym_p = 0.0
 
-        status_text = "HARVESTING" if is_active else "MONITORING"
-        vol_pct = basket_vol.get(sym, 0.0)
-        setup_desc = f"Halal Grid ({vol_pct:.1f}% ATR)" if vol_pct > 0 else "Halal Volatility Grid"
+        c_info = cand_details.get(sym, {})
+        has_signal = c_info.get("signal_triggered", False)
+        status_text = "SNIPING" if is_active else ("SIGNAL CONFIRMED" if has_signal else "MONITORING")
+        setup_desc = c_info.get("setup_name", f"Consolidating ({basket_vol.get(sym, 0.0):.1f}% ATR)")
+        prob_win = c_info.get("prob_win", 0.85 if is_active else 0.50)
+
         analysis_rows.append({
             "symbol": sym,
             "price": sym_p,
-            "prob_win": 0.85 if is_active else 0.50,
-            "strategy_score": 90.0 if is_active else 60.0,
-            "active_setups": [setup_desc] if is_active else ["Monitoring Dip"],
-            "mtf_status": "BULL TREND" if is_active else "NORMAL",
+            "prob_win": prob_win,
+            "strategy_score": 92.0 if has_signal else (85.0 if is_active else 50.0),
+            "active_setups": [setup_desc],
+            "mtf_status": "BULL TREND" if is_active or has_signal else "NORMAL",
             "status": status_text,
         })
 

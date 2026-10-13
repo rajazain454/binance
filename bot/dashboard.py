@@ -16,14 +16,14 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
 
     W = 90
     print("=" * W)
-    print(f"  BINANCE HALAL SPOT VOLATILITY GRID BOT  |  MODE: {mode}  |  TF: {config['timeframe']}")
+    print(f"  BINANCE HALAL SPOT 15m SNIPER SCALPER  |  MODE: {mode}  |  TF: {config['timeframe']}")
     print("=" * W)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)
     wr = (win_cnt / total_cnt * 100) if total_cnt > 0 else 0.0
 
     print(f"  Equity (MtM): ${total_equity:,.2f} USDT  |  Free: ${balance:,.2f}  |  Alloc: ${total_alloc:,.2f}  |  Unr: ${total_unrealized:+,.2f}")
-    print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Grid State: {cb_status}  |  Win Rate: {wr:.1f}% ({win_cnt}/{total_cnt})")
+    print(f"  Positions: {len(open_pos)}/{config['risk_management']['max_open_trades']}  |  Engine State: {cb_status}  |  Win Rate: {wr:.1f}% ({win_cnt}/{total_cnt})")
 
     # BNB Fee Discount & Shariah Status
     bnb_discount = config.get("risk_management", {}).get("bnb_fee_discount", True)
@@ -35,16 +35,16 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
         print(f"  Regime: {macro_regime}")
     grid_st = state.get("grid_state")
     if grid_st:
-        active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "NEAR/USDT")]
-        syms_display = ", ".join(active_syms) if isinstance(active_syms, list) else str(active_syms)
-        print(f"  Grid Pair(s): {syms_display}  |  Harvested Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT (Cycles: {grid_st.get('cycles_completed', 0)})")
+        active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "SOL/USDT")]
+        syms_display = ", ".join(active_syms) if (isinstance(active_syms, list) and active_syms) else "Scanning Basket"
+        print(f"  Active Scalp(s): {syms_display}  |  Booked Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT (Cycles: {grid_st.get('cycles_completed', 0)})")
     print("-" * W)
 
     # Market Radar Table with Strategy Setups
     print(f"  {'Symbol':<10} {'Price':>11} {'AI Win%':>9} {'Volatility / Setup':<32} {'Status':<16}")
     print("  " + "-" * (W - 4))
     for r in analysis_rows:
-        conv_tag = "[BUY TRIGGER]" if r["status"] == "BUY TRIGGER" else f"[{r['status']}]"
+        conv_tag = "[SIGNAL TRIGGER]" if "CONFIRMED" in r["status"] else f"[{r['status']}]"
         setups_str = ", ".join(r.get("active_setups", [])) if r.get("active_setups") else "Consolidating"
         if len(setups_str) > 30:
             setups_str = setups_str[:27] + "..."
@@ -56,7 +56,7 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     print("  ACTIVE SPOT HOLDINGS & REAL-TIME MARK-TO-MARKET")
     print("-" * W)
     if not open_pos:
-        print("  100% Cash Defense. Monitoring halal basket for value dip oscillation...")
+        print("  🛡️ 100% Cash Defense. Scanning for confirmed oversold reversal bounce...")
     else:
         sym_counts = {}
         for pos_id, p in open_pos.items():
