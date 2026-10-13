@@ -8,6 +8,8 @@ import os
 import sys
 import time
 
+from dotenv import load_dotenv
+
 from binance_client import BinanceClient
 from bot.alerts import send_daily_digest, send_discord_alert
 from bot.dashboard import print_dashboard
@@ -15,6 +17,7 @@ from bot.grid import run_grid_cycle
 from bot.state import load_state, reconcile_positions, save_state
 from utils import load_config, setup_logger
 
+load_dotenv()
 logger = logging.getLogger("quantlab")
 
 
