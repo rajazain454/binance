@@ -3,6 +3,20 @@
 import os
 
 
+def fmt_price(p: float) -> str:
+    """Formats prices with appropriate precision across micro-cap memecoins and macro assets."""
+    if p <= 0:
+        return "Scanning..."
+    if p >= 100:
+        return f"${p:,.2f}"
+    elif p >= 1:
+        return f"${p:,.4f}"
+    elif p >= 0.001:
+        return f"${p:.6f}"
+    else:
+        return f"${p:.8f}"
+
+
 def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, cb_status):
     """Renders real-time interactive terminal dashboard displaying metrics, scans, and positions."""
     os.system("cls" if os.name == "nt" else "clear")
@@ -14,9 +28,9 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     total_alloc = sum(p.get("allocated_usdt", 0.0) for p in open_pos.values())
     total_equity = balance + total_alloc + total_unrealized
 
-    W = 90
+    W = 92
     print("=" * W)
-    print(f"  BINANCE 350-COIN MOMENTUM SURFER  |  24/7 DYNAMIC SCAN  |  MODE: {mode}  |  TF: {config['timeframe']}")
+    print(f"  BINANCE TOP-10 MEMECOIN ROCKET ENGINE  |  MODE: {mode}  |  TF: {config['timeframe']}")
     print("=" * W)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)
@@ -35,28 +49,28 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
         print(f"  Regime: {macro_regime}")
     grid_st = state.get("grid_state")
     if grid_st:
-        active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "SOL/USDT")]
+        active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "PEPE/USDT")]
         syms_display = ", ".join(active_syms) if (isinstance(active_syms, list) and active_syms) else "Scanning Basket"
         print(f"  Active Scalp(s): {syms_display}  |  Booked Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT (Cycles: {grid_st.get('cycles_completed', 0)})")
     print("-" * W)
 
     # Market Radar Table with Strategy Setups
-    print(f"  {'Symbol':<10} {'Price':>11} {'AI Win%':>9} {'Volatility / Setup':<32} {'Status':<16}")
+    print(f"  {'Symbol':<12} {'Price':>13} {'AI Win%':>9} {'Volatility / Setup':<30} {'Status':<16}")
     print("  " + "-" * (W - 4))
     for r in analysis_rows:
         conv_tag = "[SIGNAL TRIGGER]" if "CONFIRMED" in r["status"] else f"[{r['status']}]"
         setups_str = ", ".join(r.get("active_setups", [])) if r.get("active_setups") else "Consolidating"
-        if len(setups_str) > 30:
-            setups_str = setups_str[:27] + "..."
-        price_str = f"${r['price']:,.4f}" if r['price'] > 0 else "Scanning..."
-        print(f"  {r['symbol']:<10} {price_str:>11} {r['prob_win']:>8.1%} {setups_str:<32} {conv_tag:<16}")
+        if len(setups_str) > 28:
+            setups_str = setups_str[:25] + "..."
+        price_str = fmt_price(r['price'])
+        print(f"  {r['symbol']:<12} {price_str:>13} {r['prob_win']:>8.1%} {setups_str:<30} {conv_tag:<16}")
 
     # Active Holdings
     print("\n" + "-" * W)
     print("  ACTIVE SPOT HOLDINGS & REAL-TIME MARK-TO-MARKET")
     print("-" * W)
     if not open_pos:
-        print("  🛡️ 100% Cash Defense. Scanning for confirmed oversold reversal bounce...")
+        print("  🛡️ 100% Cash Defense. Scanning for high-velocity memecoin breakout...")
     else:
         sym_counts = {}
         for pos_id, p in open_pos.items():
@@ -67,20 +81,20 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
             curr_p = p.get("curr_price", entry_p)
             unr_pnl = p.get("unrealized_pnl", 0.0)
             unr_pct = p.get("unrealized_pnl_pct", 0.0)
-            tp_val = p.get("take_profit", entry_p * 1.015)
+            tp_val = p.get("take_profit", entry_p * 1.045)
             
             is_trailing = p.get("trailing_active", False)
             is_partial_taken = p.get("partial_tp_taken", False)
             if is_trailing:
                 peak = p.get("peak_price", curr_p)
-                status_badge = f"🚀 TRAILING RUNNER (50% Locked | Peak: ${peak:,.4f})" if is_partial_taken else f"🚀 TRAILING (Peak: ${peak:,.4f})"
+                status_badge = f"🚀 TRAILING RUNNER (50% Locked | Peak: {fmt_price(peak)})" if is_partial_taken else f"🚀 TRAILING (Peak: {fmt_price(peak)})"
             else:
                 tp1_val = p.get("tp1_price")
-                tp1_str = f"TP1: ${tp1_val:,.4f} | " if tp1_val else ""
-                status_badge = f"{tp1_str}TP2: ${tp_val:,.4f}"
+                tp1_str = f"TP1: {fmt_price(tp1_val)} | " if tp1_val else ""
+                status_badge = f"{tp1_str}TP2: {fmt_price(tp_val)}"
 
             label = f"{sym} (L{lvl_num})"
-            print(f"  [HOLD] {label:<14} Entry: ${entry_p:<8.4f} | Now: ${curr_p:<8.4f} | "
+            print(f"  [HOLD] {label:<14} Entry: {fmt_price(entry_p):<11} | Now: {fmt_price(curr_p):<11} | "
                   f"PnL: ${unr_pnl:+6.2f} ({unr_pct:+5.2f}%) | {status_badge}")
 
     # Closed signals & events
@@ -100,7 +114,7 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
         print("  NEW EXECUTED ORDERS")
         print("-" * W)
         for ns in new_signals:
-            strat_info = ns.get("strategy_setups", "Halal Grid")
-            print(f"  [BUY] {ns['symbol']} @ ${ns['price']:,.4f} | Size: ${ns['size_usdt']} USDT | TP: ${ns.get('tp2', 0.0):,.4f} | {strat_info}")
+            strat_info = ns.get("strategy_setups", "Memecoin Scalp")
+            print(f"  [BUY] {ns['symbol']} @ {fmt_price(ns['price'])} | Size: ${ns['size_usdt']:.2f} USDT | TP: {fmt_price(ns.get('tp2', 0.0))} | {strat_info}")
 
     print("=" * W + "\n")

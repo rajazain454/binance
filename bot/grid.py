@@ -21,6 +21,20 @@ from bot.ledger import log_trade
 logger = logging.getLogger("quantlab")
 
 
+def _fmt(val: float) -> str:
+    """Formats price values cleanly across micro-cap memecoins and macro assets."""
+    if val <= 0:
+        return "0.00"
+    if val < 0.001:
+        return f"{val:.8f}"
+    elif val < 1.0:
+        return f"{val:.6f}"
+    elif val < 10.0:
+        return f"{val:.4f}"
+    else:
+        return f"{val:,.2f}"
+
+
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """Calculates Average True Range (ATR) from OHLC dataframe."""
     high = df["high"]
@@ -463,8 +477,8 @@ def run_grid_cycle(
                 pos["stop_loss"] = guaranteed_sl
                 stop_loss = guaranteed_sl
                 logger.info(
-                    "🛡️ [BREAKEVEN GUARD] %s gained +%.2f%%! Stop Loss ratcheted to $%.4f (Risk-Free Trade)",
-                    symbol, gain_pct * 100.0, guaranteed_sl
+                    "🛡️ [BREAKEVEN GUARD] %s gained +%.2f%%! Stop Loss ratcheted to $%s (Risk-Free Trade)",
+                    symbol, gain_pct * 100.0, _fmt(guaranteed_sl)
                 )
 
         # 3b. PARTIAL PROFIT SCALING (Take 50% profit at TP1, lock risk-free stop)
@@ -487,7 +501,7 @@ def run_grid_cycle(
             pos["allocated_usdt"] -= part_alloc
             allocated_usdt = pos["allocated_usdt"]
             pos["partial_tp_taken"] = True
-            pos["stop_loss"] = max(pos.get("stop_loss", 0.0), round(entry_price * 1.003, 4))
+            pos["stop_loss"] = max(pos.get("stop_loss", 0.0), round(entry_price * 1.003, 8 if entry_price < 1 else 4))
             stop_loss = pos["stop_loss"]
             pos["trailing_active"] = True
             pos["peak_price"] = p_price
@@ -526,8 +540,8 @@ def run_grid_cycle(
                 "reason": f"Partial TP1 Harvest (50% closed at +{part_pnl_pct:.2f}%)",
             })
             logger.info(
-                "💰 [PARTIAL TP1] %s 50%% Harvested at $%s (+%.2f%%) | Booked Net: +$%.2f USDT | Remaining $%.2f Trailing with SL $%.4f",
-                symbol, f"{p_price:,.4f}", part_pnl_pct, part_net, allocated_usdt, stop_loss
+                "💰 [PARTIAL TP1] %s 50%% Harvested at $%s (+%.2f%%) | Booked Net: +$%.2f USDT | Remaining $%.2f Trailing with SL $%s",
+                symbol, _fmt(p_price), part_pnl_pct, part_net, allocated_usdt, _fmt(stop_loss)
             )
 
         should_exit = False
@@ -547,13 +561,13 @@ def run_grid_cycle(
                 if p_price <= trailing_stop or p_price <= floor_stop:
                     should_exit = True
                     outcome = "WIN"
-                    harvest_reason = f"Trailing TP Harvest (Peak: ${peak:,.4f}, Drop: -{callback_pct*100:.2f}%)"
+                    harvest_reason = f"Trailing TP Harvest (Peak: ${_fmt(peak)}, Drop: -{callback_pct*100:.2f}%)"
             elif p_price >= target_tp:
                 pos["trailing_active"] = True
                 pos["peak_price"] = p_price
                 logger.info(
                     "🚀 [TRAILING TP ARMED] %s hit scalp target ($%s). Tracking peak price ($%s)...",
-                    symbol, f"{target_tp:,.4f}", f"{p_price:,.4f}"
+                    symbol, _fmt(target_tp), _fmt(p_price)
                 )
         else:
             if p_price >= target_tp:
@@ -668,7 +682,7 @@ def run_grid_cycle(
             harvested_profits.append(harvested)
             logger.info(
                 "💰 [%s] %s Sold at $%s (%+.2f%%) | Net PnL: +$%s USDT | %s",
-                outcome, symbol, f"{exit_price:,.4f}", pnl_pct, f"{net_pnl:.2f}", harvest_reason
+                outcome, symbol, _fmt(exit_price), pnl_pct, f"{net_pnl:.2f}", harvest_reason
             )
         else:
             pos["curr_price"] = p_price
@@ -778,7 +792,7 @@ def run_grid_cycle(
                 optimal_entry = max(cand_ema9, retrace_price)
             else:
                 optimal_entry = retrace_price
-            cand_price = round(optimal_entry, 4 if optimal_entry < 10 else 2)
+            cand_price = round(optimal_entry, 8 if optimal_entry < 0.01 else (4 if optimal_entry < 10 else 2))
 
         # Dynamic ATR-Based Take-Profit and Stop Loss
         atr_pct = (cand_atr / cand_price) if cand_price > 0 else 0.02
@@ -840,8 +854,8 @@ def run_grid_cycle(
         new_buys.append(new_pos)
         logger.info(
             "🟢 [SNIPER BUY] %s Bought $%s at $%s | Setup: %s | Target TP: $%s (+%.2f%%)",
-            cand_sym, f"{actual_order_size:.2f}", f"{cand_price:,.4f}",
-            cand.get("setup_name", "Scalp"), f"{target_tp_price:,.4f}", elastic_tp_pct * 100.0
+            cand_sym, f"{actual_order_size:.2f}", _fmt(cand_price),
+            cand.get("setup_name", "Scalp"), _fmt(target_tp_price), elastic_tp_pct * 100.0
         )
         break
 

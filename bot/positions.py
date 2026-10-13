@@ -8,6 +8,18 @@ from bot.ledger import log_trade
 logger = logging.getLogger("quantlab")
 
 
+def round_price(val: float) -> float:
+    """Rounds prices, safely retaining up to 8 decimal places for micro-cap memecoins."""
+    if val <= 0:
+        return 0.0
+    if val < 0.001:
+        return round(val, 8)
+    elif val < 1.0:
+        return round(val, 6)
+    else:
+        return round(val, 4)
+
+
 def render_trade_progress(curr_p, entry_p, tp1, sl, length=10):
     """
     Renders visual ASCII progress gauge indicating progress towards TP1 or SL.
@@ -143,12 +155,12 @@ def check_and_update_positions(client, state, config):
                         "position_id": pos_id,
                         "symbol": sym,
                         "action": "FINAL CLOSE (FULL TP1 REACHED)",
-                        "entry_price": round(entry_price, 4),
-                        "exit_price": round(curr_price, 4),
+                        "entry_price": round_price(entry_price),
+                        "exit_price": round_price(curr_price),
                         "allocated_usdt": round(allocated, 2),
-                        "stop_loss": round(sl, 4),
-                        "tp1": round(tp1, 4),
-                        "tp2": round(tp2, 4),
+                        "stop_loss": round_price(sl),
+                        "tp1": round_price(tp1),
+                        "tp2": round_price(tp2),
                         "net_pnl": round(net_pnl, 2),
                         "pnl_pct": round((net_pnl / allocated) * 100, 2),
                         "confidence_pct": pos.get("confidence", ""),
@@ -169,12 +181,12 @@ def check_and_update_positions(client, state, config):
                         "position_id": pos_id,
                         "symbol": sym,
                         "action": "BREAKEVEN LOCK (SMALL ACCOUNT)",
-                        "entry_price": round(entry_price, 4),
-                        "exit_price": round(curr_price, 4),
+                        "entry_price": round_price(entry_price),
+                        "exit_price": round_price(curr_price),
                         "allocated_usdt": round(allocated, 2),
-                        "stop_loss": round(sl, 4),
-                        "tp1": round(tp1, 4),
-                        "tp2": round(tp2, 4),
+                        "stop_loss": round_price(sl),
+                        "tp1": round_price(tp1),
+                        "tp2": round_price(tp2),
                         "net_pnl": 0.0,
                         "pnl_pct": 0.0,
                         "confidence_pct": pos.get("confidence", ""),
@@ -215,12 +227,12 @@ def check_and_update_positions(client, state, config):
                 "position_id": pos_id,
                 "symbol": sym,
                 "action": "PARTIAL TP1 (50% SOLD)",
-                "entry_price": round(entry_price, 4),
-                "exit_price": round(curr_price, 4),
+                "entry_price": round_price(entry_price),
+                "exit_price": round_price(curr_price),
                 "allocated_usdt": round(sell_allocated, 2),
-                "stop_loss": round(sl, 4),
-                "tp1": round(tp1, 4),
-                "tp2": round(tp2, 4),
+                "stop_loss": round_price(sl),
+                "tp1": round_price(tp1),
+                "tp2": round_price(tp2),
                 "net_pnl": round(net_pnl, 2),
                 "pnl_pct": round((net_pnl / sell_allocated) * 100, 2),
                 "confidence_pct": pos.get("confidence", ""),
@@ -280,12 +292,12 @@ def check_and_update_positions(client, state, config):
                 "position_id": pos_id,
                 "symbol": sym,
                 "action": "FINAL CLOSE",
-                "entry_price": round(entry_price, 4),
-                "exit_price": round(curr_price, 4),
+                "entry_price": round_price(entry_price),
+                "exit_price": round_price(curr_price),
                 "allocated_usdt": round(allocated, 2),
-                "stop_loss": round(sl, 4),
-                "tp1": round(tp1, 4),
-                "tp2": round(tp2, 4),
+                "stop_loss": round_price(sl),
+                "tp1": round_price(tp1),
+                "tp2": round_price(tp2),
                 "net_pnl": round(net_pnl, 2),
                 "pnl_pct": round((net_pnl / allocated) * 100, 2),
                 "confidence_pct": pos.get("confidence", ""),
