@@ -65,7 +65,7 @@ jobs:
           git config --global user.email "bot@quantlab.internal"
           git add bot_state.json config.json
           [ -f logs/trade_history.csv ] && git add logs/trade_history.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: persist bot state and trade ledger [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: persist bot state and trade ledger [skip ci]" && git pull --rebase origin main && git push)
 
       - name: Notify on Unexpected Failure
         if: failure()
