@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 63.63696715518847,
+  "balance_usdt": 51.63696715518847,
   "peak_balance": 100.0,
   "daily_peak_balance": 99.63696715518847,
   "daily_reset_time": "2026-10-13T06:01:06.440088+00:00",
@@ -11,12 +11,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T06:59:22.709595+00:00",
       "entry_price": 5.29,
-      "curr_price": 5.204,
+      "curr_price": 5.156,
       "stop_loss": 5.0255,
       "take_profit": 5.430978571428572,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.19508506616257115,
-      "unrealized_pnl_pct": -1.625708884688093
+      "unrealized_pnl": -0.30396975425330863,
+      "unrealized_pnl_pct": -2.5330812854442386
     },
     "76698e08": {
       "position_id": "76698e08",
@@ -24,12 +24,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:28:53.020245+00:00",
       "entry_price": 5.164,
-      "curr_price": 5.204,
+      "curr_price": 5.156,
       "stop_loss": 4.905799999999999,
       "take_profit": 5.294885714285715,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": 0.09295120061967577,
-      "unrealized_pnl_pct": 0.7745933384972981
+      "unrealized_pnl": -0.01859024012393462,
+      "unrealized_pnl_pct": -0.15491866769945517
     },
     "da3b3834": {
       "position_id": "da3b3834",
@@ -37,21 +37,36 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:41:09.006404+00:00",
       "entry_price": 10.511,
-      "curr_price": 10.447,
+      "curr_price": 10.363,
       "stop_loss": 9.985449999999998,
       "take_profit": 10.660207142857141,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.07306631148320841,
-      "unrealized_pnl_pct": -0.6088859290267368,
+      "unrealized_pnl": -0.16896584530491854,
+      "unrealized_pnl_pct": -1.4080487108743212,
       "trailing_active": false,
       "peak_price": 10.511
+    },
+    "7e26ddf4": {
+      "position_id": "7e26ddf4",
+      "symbol": "AVAX/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-13T09:01:01.520271+00:00",
+      "entry_price": 10.363,
+      "curr_price": 10.363,
+      "stop_loss": 9.84485,
+      "take_profit": 10.51252857142857,
+      "allocated_usdt": 12.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 10.363
     }
   },
   "loss_cooldowns": {},
   "trade_count": 13,
   "win_count": 8,
   "loss_count": 5,
-  "last_update": "2026-10-13 08:21:45",
+  "last_update": "2026-10-13 09:01:01",
   "last_digest_date": "2026-10-13",
   "last_hourly_alert": "2026-10-13 08:21:44",
   "macro_regime": "MACRO BULL TREND (BTC $81,850 > 200d SMA $72,083)",
@@ -61,7 +76,7 @@
     "active_levels": {},
     "total_grid_profit_usdt": 0.0,
     "cycles_completed": 0,
-    "grid_trades": 3,
+    "grid_trades": 4,
     "active_symbols": [
       "NEAR/USDT",
       "AVAX/USDT"
