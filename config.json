@@ -24,7 +24,7 @@
     "scan_all_pairs": false,
     "min_24h_volume_usdt": 2000000.0,
     "max_candidates_to_analyze": 9,
-    "require_confluence_signal": false,
+    "require_confluence_signal": true,
     "halal_basket": [
       "PEPE/USDT",
       "WIF/USDT",
