@@ -92,6 +92,20 @@
     "webhook_url": "",
     "hourly_radar_alert": true
   },
+  "grid_trading": {
+    "enabled": true,
+    "halal_basket": [
+      "SOL/USDT",
+      "AVAX/USDT",
+      "NEAR/USDT",
+      "LINK/USDT"
+    ],
+    "macro_benchmark": "BTC/USDT",
+    "order_size_usdt": 12.0,
+    "max_grid_levels": 5,
+    "min_step_pct": 0.012,
+    "min_cash_reserve_usdt": 15.0
+  },
   "paths": {
     "data_dir": "data",
     "models_dir": "models",

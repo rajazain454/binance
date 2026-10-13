@@ -12,6 +12,7 @@ import joblib
 from binance_client import BinanceClient
 from bot.alerts import send_daily_digest, send_discord_alert
 from bot.dashboard import print_dashboard
+from bot.grid import run_grid_cycle
 from bot.positions import check_and_update_positions, render_trade_progress
 from bot.scanner import scan_and_execute
 from bot.state import load_state, reconcile_positions, save_state
@@ -30,11 +31,62 @@ def execute_cycle(client, model_bundle, config):
     if config.get("trading_mode") == "live" and client.has_credentials:
         reconcile_positions(client, state, config)
 
-    # 1. Update existing positions
-    closed_signals = check_and_update_positions(client, state, config)
+    new_signals = []
+    closed_signals = []
+    analysis_rows = []
+    cb_status = "NORMAL"
 
-    # 2. Scan market and execute new orders
-    analysis_rows, new_signals, cb_status = scan_and_execute(client, model_bundle, state, config)
+    grid_enabled = config.get("grid_trading", {}).get("enabled", False)
+    if grid_enabled:
+        new_grid_buys, harvested_profits, grid_status = run_grid_cycle(client, state, config)
+        cb_status = grid_status.get("status", "ACTIVE_HARVESTING")
+
+        for h in harvested_profits:
+            closed_signals.append({
+                "symbol": h["symbol"],
+                "action": "GRID_HARVEST",
+                "entry_price": h["entry_price"],
+                "exit_price": h["exit_price"],
+                "net_pnl": h["net_pnl"],
+                "pnl_pct": h["pnl_pct"],
+                "outcome": "WIN",
+                "position_id": h["position_id"],
+                "reason": h["reason"],
+            })
+
+        for b in new_grid_buys:
+            new_signals.append({
+                "symbol": b["symbol"],
+                "action": "GRID_BUY",
+                "price": b["entry_price"],
+                "tp2": b["take_profit"],
+                "stop_loss": b["entry_price"] * 0.95,
+                "size_usdt": b["allocated_usdt"],
+                "confidence_pct": 100.0,
+                "strategy_setups": "Adaptive Halal Volatility Grid",
+                "strategy_score": 95.0,
+                "indicators_summary": f"Targeting +{((b['take_profit']/b['entry_price'])-1)*100:.1f}% bounce oscillation",
+            })
+
+        basket = config.get("grid_trading", {}).get("halal_basket", ["SOL/USDT", "AVAX/USDT", "NEAR/USDT", "LINK/USDT"])
+        for sym in basket:
+            is_active = (sym == grid_status.get("active_symbol"))
+            status_text = "HARVESTING" if is_active else "MONITORING"
+            analysis_rows.append({
+                "symbol": sym,
+                "price": grid_status.get("current_price", 0.0) if is_active else 0.0,
+                "prob_win": 0.85 if is_active else 0.50,
+                "strategy_score": 90.0 if is_active else 60.0,
+                "active_setups": ["Halal Volatility Grid"] if is_active else ["Monitoring Basket"],
+                "mtf_status": "BULL TREND" if is_active else "NORMAL",
+                "status": status_text,
+            })
+    else:
+        # 1. Update existing positions
+        closed_signals = check_and_update_positions(client, state, config)
+
+        # 2. Scan market and execute new orders
+        analysis_rows, new_signals, cb_status = scan_and_execute(client, model_bundle, state, config)
 
     # 3. Print CLI dashboard
     print_dashboard(analysis_rows, new_signals, closed_signals, state, config, cb_status)
@@ -220,15 +272,19 @@ def main():
     if args.capital:
         config["risk_management"]["capital_usdt"] = args.capital
 
-    if not os.path.exists(args.model):
+    model_bundle = None
+    if os.path.exists(args.model):
+        try:
+            model_bundle = joblib.load(args.model)
+            is_stale, age_days, stale_msg = check_model_staleness(model_bundle)
+            if is_stale:
+                logger.warning("[MODEL STALENESS WARNING] %s", stale_msg)
+            else:
+                logger.info("[MODEL STATUS] %s", stale_msg)
+        except Exception as e:
+            logger.warning("Could not load model bundle: %s", e)
+    elif not config.get("grid_trading", {}).get("enabled", False):
         sys.exit(f"Model file '{args.model}' not found. Please run 'python train.py' first.")
-
-    model_bundle = joblib.load(args.model)
-    is_stale, age_days, stale_msg = check_model_staleness(model_bundle)
-    if is_stale:
-        logger.warning("[MODEL STALENESS WARNING] %s", stale_msg)
-    else:
-        logger.info("[MODEL STATUS] %s", stale_msg)
 
     client = BinanceClient(config)
 

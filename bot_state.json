@@ -1,17 +1,38 @@
 {
-  "balance_usdt": 99.63696715518847,
+  "balance_usdt": 87.63696715518847,
   "peak_balance": 100.0,
   "daily_peak_balance": 99.63696715518847,
   "daily_reset_time": "2026-10-13T06:01:06.440088+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {},
+  "open_positions": {
+    "c4764b7d": {
+      "position_id": "c4764b7d",
+      "symbol": "NEAR/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-13T06:59:22.709595+00:00",
+      "entry_price": 5.29,
+      "curr_price": 5.292,
+      "stop_loss": 5.0255,
+      "take_profit": 5.430978571428572,
+      "allocated_usdt": 12.0,
+      "unrealized_pnl": 0.004536862003780229,
+      "unrealized_pnl_pct": 0.03780718336483524
+    }
+  },
   "loss_cooldowns": {},
   "trade_count": 13,
   "win_count": 8,
   "loss_count": 5,
-  "last_update": "2026-10-13 06:01:09",
+  "last_update": "2026-10-13 06:59:36",
   "last_digest_date": "2026-10-13",
   "last_hourly_alert": "2026-10-13 06:01:09",
   "macro_regime": "MACRO BULL TREND (BTC $81,850 > 200d SMA $72,083)",
-  "is_bear_defense": false
+  "is_bear_defense": false,
+  "grid_state": {
+    "active_symbol": "NEAR/USDT",
+    "active_levels": {},
+    "total_grid_profit_usdt": 0.0,
+    "cycles_completed": 0,
+    "grid_trades": 1
+  }
 }

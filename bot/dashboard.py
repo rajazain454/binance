@@ -27,6 +27,11 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     macro_regime = state.get("macro_regime")
     if macro_regime:
         print(f"  Macro Regime: {macro_regime}")
+    grid_st = state.get("grid_state")
+    if grid_st:
+        print(f"  Halal Spot Grid: Active Pair: {grid_st.get('active_symbol', 'SOL/USDT')} | "
+              f"Locked Grid Profit: +${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT | "
+              f"Cycles Completed: {grid_st.get('cycles_completed', 0)}")
     print("-" * 108)
 
     # Market Radar Table with Strategy Setups
@@ -55,8 +60,9 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
             tp1_val = p.get("take_profit_1") or p.get("take_profit") or (entry_p * 1.015)
             tp2_val = p.get("take_profit_2") or (tp1_val * 1.015)
             tp1_status = "LOCKED [BREAKEVEN]" if p.get("tp1_reached") else f"${tp1_val:.4f}"
+            sl_val = p.get("stop_loss", entry_p * 0.95)
             print(f"  [HOLD] {sym:<9} Entry: ${entry_p:<9.4f} | Now: ${curr_p:<9.4f} | Unr: ${unr_pnl:+7.2f} ({unr_pct:+6.2f}%) | "
-                  f"Stop: ${p['stop_loss']:<9.4f} | TP1: {tp1_status:<17} | TP2: ${tp2_val:<9.4f}")
+                  f"Stop: ${sl_val:<9.4f} | TP1: {tp1_status:<17} | TP2: ${tp2_val:<9.4f}")
 
     # Closed signals & events
     if closed_signals:
