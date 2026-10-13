@@ -138,34 +138,8 @@ def execute_cycle(client, config, model_bundle=None):
 
             if should_send_hourly:
                 state["last_hourly_alert"] = now_utc.strftime("%Y-%m-%d %H:%M:%S")
-                total_equity = state["balance_usdt"]
-                active_str = ""
-                if state.get("open_positions"):
-                    pos_lines = []
-                    for psym, p in state["open_positions"].items():
-                        c_p = p.get("curr_price", p["entry_price"])
-                        u_pnl = p.get("unrealized_pnl", 0.0)
-                        u_pct = p.get("unrealized_pnl_pct", 0.0)
-                        total_equity += (p["allocated_usdt"] + u_pnl)
-                        tp_target = p.get("take_profit", p["entry_price"] * 1.015)
-                        pos_lines.append(
-                            f"• **{p['symbol']}**: Now `${c_p:,.4f}` | Entry `${p['entry_price']:,.4f}` | "
-                            f"PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%) | Target TP: `${tp_target:,.4f}`"
-                        )
-                    active_str = "\n".join(pos_lines)
-                else:
-                    active_str = "🛡️ 100% Cash Balance (Waiting for next oscillation entry)"
-
-                grid_st = state.get("grid_state", {})
-                fields = [
-                    {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
-                    {"name": "🎯 Active Grid Pair", "value": f"**{grid_st.get('active_symbol', 'NEAR/USDT')}**", "inline": True},
-                    {"name": "💰 Total Harvested Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
-                    {"name": "📊 Active Grid Positions", "value": active_str, "inline": False},
-                    {"name": "⚙️ System Health", "value": "🟢 Online 24/7 | Checking order books and market oscillation every cycle", "inline": False},
-                ]
-                title = "📡 Hourly Halal Grid Radar & Portfolio Update"
-                send_discord_alert(webhook, title, fields, color=3447003)
+                from bot.alerts import send_radar_status_alert
+                send_radar_status_alert(state, config)
 
     # Save state
     state["last_update"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -180,6 +154,7 @@ def main():
     parser.add_argument("--loop", action="store_true", help="Run continuously on candle close loop")
     parser.add_argument("--capital", type=float, default=None, help="Override starting capital")
     parser.add_argument("--test-discord", action="store_true", help="Send a test embed to Discord")
+    parser.add_argument("--status", action="store_true", help="Send real-time position status & progress gauge to Discord")
     parser.add_argument("--digest", action="store_true", help="Send 24h portfolio digest embed to Discord")
     parser.add_argument("--force", action="store_true", help="Force action (e.g. bypass digest frequency limit)")
 
@@ -187,6 +162,14 @@ def main():
     config = load_config(args.config)
     log_file = os.path.join(config.get("paths", {}).get("logs_dir", "logs"), "bot.log")
     setup_logger(log_file)
+
+    if args.status:
+        state = load_state(config["paths"]["state_file"], initial_capital=config["risk_management"]["capital_usdt"])
+        from bot.alerts import send_radar_status_alert
+        ok, res = send_radar_status_alert(state, config)
+        logger.info("Live radar status dispatch result: %s", res)
+        if not args.scan and not args.loop:
+            return
 
     if args.digest:
         state = load_state(config["paths"]["state_file"], initial_capital=config["risk_management"]["capital_usdt"])

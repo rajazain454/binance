@@ -122,3 +122,48 @@ def send_daily_digest(state, config):
         from bot.state import save_state
         save_state(state, config["paths"]["state_file"])
     return ok, res
+
+
+def send_radar_status_alert(state, config):
+    """Dispatches a real-time status embed of current active positions and progress to Discord."""
+    discord_cfg = config.get("discord", {})
+    if not discord_cfg.get("enabled", False):
+        return False, "Discord alerts disabled."
+    webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
+    if not webhook:
+        return False, "No webhook configured."
+
+    from bot.positions import render_trade_progress
+
+    total_equity = state["balance_usdt"]
+    active_str = ""
+    if state.get("open_positions"):
+        pos_lines = []
+        for psym, p in state["open_positions"].items():
+            c_p = p.get("curr_price", p["entry_price"])
+            u_pnl = p.get("unrealized_pnl", 0.0)
+            u_pct = p.get("unrealized_pnl_pct", 0.0)
+            total_equity += (p["allocated_usdt"] + u_pnl)
+            tp_target = p.get("take_profit", p["entry_price"] * 1.015)
+            sl_val = p.get("stop_loss", p["entry_price"] * 0.95)
+            gauge = render_trade_progress(c_p, p["entry_price"], tp_target, sl_val)
+            pos_lines.append(
+                f"• **{p['symbol']}**: Live Price `${c_p:,.4f}` (Bought at `${p['entry_price']:,.4f}`) | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%)\n"
+                f"  🎯 Target: {gauge}"
+            )
+        active_str = "\n".join(pos_lines)
+    else:
+        active_str = "🛡️ 100% Cash Defense (Waiting for next value dip to buy)"
+
+    grid_st = state.get("grid_state", {})
+    fields = [
+        {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
+        {"name": "🎯 Active Grid Pair", "value": f"**{grid_st.get('active_symbol', 'NEAR/USDT')}**", "inline": True},
+        {"name": "💰 Harvested Grid Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
+        {"name": "📊 Active Holdings & Real-Time Target Gauge", "value": active_str, "inline": False},
+        {"name": "🕌 Shariah Compliance", "value": "100% Spot Asset Ownership (*Qabd*) — Zero Debt/Riba", "inline": False},
+        {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking price action & order book every cycle", "inline": False},
+    ]
+    title = "📡 Live Halal Grid Status & Target Progress"
+    return send_discord_alert(webhook, title, fields, color=3447003)
+
