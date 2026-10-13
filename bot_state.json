@@ -1,5 +1,5 @@
 {
-  "balance_usdt": 74.40584196637998,
+  "balance_usdt": 49.40584196637998,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-13T00:00:00.000000+00:00",
@@ -11,15 +11,31 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T11:01:01.045618+00:00",
       "entry_price": 10.237,
-      "curr_price": 10.229,
-      "stop_loss": 10.05273,
+      "curr_price": 10.367,
+      "stop_loss": 10.257474,
       "take_profit": 10.35984,
       "allocated_usdt": 25.0,
-      "unrealized_pnl": -0.01953697372277241,
-      "unrealized_pnl_pct": -0.07814789489108964,
-      "trailing_active": false,
-      "peak_price": 10.237,
+      "unrealized_pnl": 0.3174758229950225,
+      "unrealized_pnl_pct": 1.26990329198009,
+      "trailing_active": true,
+      "peak_price": 10.367,
       "setup_name": "Oversold Bounce (RSI 24)"
+    },
+    "d1c80970": {
+      "position_id": "d1c80970",
+      "symbol": "NEAR/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-13T14:49:41.511370+00:00",
+      "entry_price": 5.087,
+      "curr_price": 5.087,
+      "stop_loss": 4.9954339999999995,
+      "take_profit": 5.178028571428571,
+      "allocated_usdt": 25.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 5.087,
+      "setup_name": "Oversold Bounce (RSI 53)"
     }
   },
   "loss_cooldowns": {},
@@ -27,18 +43,19 @@
   "win_count": 0,
   "loss_count": 1,
   "realized_pnl_usdt": -0.5941580336200147,
-  "last_update": "2026-10-13 14:01:06",
+  "last_update": "2026-10-13 14:49:42",
   "last_digest_date": "2026-10-13",
   "last_hourly_alert": "2026-10-13 13:00:59",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "SOL/USDT",
+    "active_symbol": "NEAR/USDT",
     "active_symbols": [
-      "AVAX/USDT"
+      "AVAX/USDT",
+      "NEAR/USDT"
     ],
     "total_grid_profit_usdt": -0.5941580336200147,
     "cycles_completed": 1,
-    "grid_trades": 2
+    "grid_trades": 3
   }
 }
