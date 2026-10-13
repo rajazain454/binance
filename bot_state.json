@@ -11,12 +11,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T06:59:22.709595+00:00",
       "entry_price": 5.29,
-      "curr_price": 5.156,
+      "curr_price": 5.114,
       "stop_loss": 5.0255,
       "take_profit": 5.430978571428572,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.30396975425330863,
-      "unrealized_pnl_pct": -2.5330812854442386
+      "unrealized_pnl": -0.3992438563327041,
+      "unrealized_pnl_pct": -3.3270321361058675
     },
     "76698e08": {
       "position_id": "76698e08",
@@ -24,12 +24,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:28:53.020245+00:00",
       "entry_price": 5.164,
-      "curr_price": 5.156,
+      "curr_price": 5.114,
       "stop_loss": 4.905799999999999,
       "take_profit": 5.294885714285715,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.01859024012393462,
-      "unrealized_pnl_pct": -0.15491866769945517
+      "unrealized_pnl": -0.11618900077459271,
+      "unrealized_pnl_pct": -0.9682416731216059
     },
     "da3b3834": {
       "position_id": "da3b3834",
@@ -37,12 +37,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:41:09.006404+00:00",
       "entry_price": 10.511,
-      "curr_price": 10.363,
+      "curr_price": 10.334,
       "stop_loss": 9.985449999999998,
       "take_profit": 10.660207142857141,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.16896584530491854,
-      "unrealized_pnl_pct": -1.4080487108743212,
+      "unrealized_pnl": -0.2020740176957463,
+      "unrealized_pnl_pct": -1.6839501474645524,
       "trailing_active": false,
       "peak_price": 10.511
     },
@@ -52,12 +52,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T09:01:01.520271+00:00",
       "entry_price": 10.363,
-      "curr_price": 10.363,
+      "curr_price": 10.334,
       "stop_loss": 9.84485,
       "take_profit": 10.51252857142857,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.0,
+      "unrealized_pnl": -0.03358100936022357,
+      "unrealized_pnl_pct": -0.27984174466852973,
       "trailing_active": false,
       "peak_price": 10.363
     }
@@ -66,9 +66,9 @@
   "trade_count": 13,
   "win_count": 8,
   "loss_count": 5,
-  "last_update": "2026-10-13 09:01:01",
+  "last_update": "2026-10-13 10:00:58",
   "last_digest_date": "2026-10-13",
-  "last_hourly_alert": "2026-10-13 08:21:44",
+  "last_hourly_alert": "2026-10-13 10:00:58",
   "macro_regime": "MACRO BULL TREND (BTC $81,850 > 200d SMA $72,083)",
   "is_bear_defense": false,
   "grid_state": {
