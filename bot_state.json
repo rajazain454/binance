@@ -11,12 +11,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T06:59:22.709595+00:00",
       "entry_price": 5.29,
-      "curr_price": 5.255,
+      "curr_price": 5.202,
       "stop_loss": 5.0255,
       "take_profit": 5.430978571428572,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": -0.07939508506616333,
-      "unrealized_pnl_pct": -0.6616257088846944
+      "unrealized_pnl": -0.19962192816635138,
+      "unrealized_pnl_pct": -1.6635160680529282
     },
     "76698e08": {
       "position_id": "76698e08",
@@ -24,12 +24,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:28:53.020245+00:00",
       "entry_price": 5.164,
-      "curr_price": 5.255,
+      "curr_price": 5.202,
       "stop_loss": 4.905799999999999,
       "take_profit": 5.294885714285715,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": 0.21146398140976164,
-      "unrealized_pnl_pct": 1.762199845081347
+      "unrealized_pnl": 0.08830364058869211,
+      "unrealized_pnl_pct": 0.7358636715724343
     },
     "da3b3834": {
       "position_id": "da3b3834",
@@ -37,12 +37,12 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-13T07:41:09.006404+00:00",
       "entry_price": 10.511,
-      "curr_price": 10.511,
+      "curr_price": 10.451,
       "stop_loss": 9.985449999999998,
       "take_profit": 10.660207142857141,
       "allocated_usdt": 12.0,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.0,
+      "unrealized_pnl": -0.06849966701550647,
+      "unrealized_pnl_pct": -0.5708305584625539,
       "trailing_active": false,
       "peak_price": 10.511
     }
@@ -51,13 +51,13 @@
   "trade_count": 13,
   "win_count": 8,
   "loss_count": 5,
-  "last_update": "2026-10-13 07:41:09",
+  "last_update": "2026-10-13 08:00:55",
   "last_digest_date": "2026-10-13",
   "last_hourly_alert": "2026-10-13 07:16:21",
   "macro_regime": "MACRO BULL TREND (BTC $81,850 > 200d SMA $72,083)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "NEAR/USDT",
+    "active_symbol": "LINK/USDT",
     "active_levels": {},
     "total_grid_profit_usdt": 0.0,
     "cycles_completed": 0,
