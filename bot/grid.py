@@ -93,21 +93,69 @@ def fetch_client_price(client, symbol: str) -> float:
     return 0.0
 
 
+def discover_top_momentum_symbols(
+    client,
+    min_volume_usdt: float = 2_000_000.0,
+    max_symbols: int = 15,
+) -> List[str]:
+    """Dynamically screens all 350+ Binance Spot USDT pairs and returns the top active runners."""
+    tickers = {}
+    if hasattr(client, "fetch_all_tickers"):
+        try:
+            tickers = client.fetch_all_tickers()
+        except Exception:
+            pass
+    elif hasattr(client, "exchange") and hasattr(client.exchange, "fetch_tickers"):
+        try:
+            tickers = client.exchange.fetch_tickers()
+        except Exception:
+            pass
+
+    if not tickers:
+        return []
+
+    excluded_tokens = ["UP/", "DOWN/", "BEAR/", "BULL/", "FDUSD", "USDC", "EUR", "TUSD", "DAI"]
+    valid_runners = []
+
+    for sym, tk in tickers.items():
+        if not sym.endswith("/USDT"):
+            continue
+        if any(ex in sym for ex in excluded_tokens):
+            continue
+        vol = float(tk.get("quoteVolume", 0.0) or 0.0)
+        pct = float(tk.get("percentage", 0.0) or 0.0)
+        price = float(tk.get("last", 0.0) or 0.0)
+        if vol >= min_volume_usdt and price > 0:
+            valid_runners.append((sym, pct, vol, price))
+
+    valid_runners.sort(key=lambda x: x[1], reverse=True)
+    return [r[0] for r in valid_runners[:max_symbols]]
+
+
 def select_best_halal_asset(
     client,
     symbols: List[str],
     macro_benchmark: str = "BTC/USDT",
     timeframe: str = "15m",
+    config: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Evaluates the Halal basket and detects confirmed high-probability swing/scalp setups.
+    """Evaluates the Halal basket or full 350-coin universe and detects confirmed breakout setups.
     
-    Never buys blindly. Requires either:
-      1. Extreme Oversold Reversal (RSI <= 35 or Lower Bollinger touch + Green candle confirmation)
-      2. Bullish Momentum Breakout (EMA 9 > 21 > 50 + Volume Expansion + Green candle)
+    Dynamically scans Binance Spot for the highest-momentum runners when scan_all_pairs is enabled.
     """
     candidates = []
     basket_prices = {}
     basket_vol = {}
+
+    symbols_to_scan = symbols
+    if config:
+        grid_cfg = config.get("grid_trading", {})
+        if grid_cfg.get("scan_all_pairs", False):
+            min_vol = grid_cfg.get("min_24h_volume_usdt", 2_000_000.0)
+            max_cand = grid_cfg.get("max_candidates_to_analyze", 15)
+            runners = discover_top_momentum_symbols(client, min_vol, max_cand)
+            if runners:
+                symbols_to_scan = list(dict.fromkeys(runners + symbols))
 
     # 1. Check macro benchmark regime
     try:
@@ -125,7 +173,7 @@ def select_best_halal_asset(
     except Exception as e:
         logger.warning("[Macro Guard] Could not fetch benchmark %s: %s", macro_benchmark, e)
 
-    for symbol in symbols:
+    for symbol in symbols_to_scan:
         try:
             df = fetch_client_df(client, symbol, timeframe=timeframe, limit=120)
             if df.empty or len(df) < 30:
@@ -298,7 +346,7 @@ def run_grid_cycle(
     grid_state = state["grid_state"]
 
     # 2. Select the top Halal asset with confirmed signal
-    top_asset = select_best_halal_asset(client, symbols, benchmark, timeframe)
+    top_asset = select_best_halal_asset(client, symbols, benchmark, timeframe, config=config)
     if not top_asset:
         logger.info("[Sniper Engine] No valid market data. Holding 100% Cash Defense.")
         return [], [], {"status": "PAUSED_DEFENSE", "reason": "Market health check paused"}

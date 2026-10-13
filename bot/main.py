@@ -71,16 +71,19 @@ def execute_cycle(client, config, model_bundle=None):
     active_symbols = grid_status.get("active_symbols", [grid_status.get("active_symbol")])
     cand_details = grid_status.get("candidate_details", {})
 
-    for sym in basket:
+    # Display active holdings first, then triggered signals, then top momentum runners
+    all_symbols = list(dict.fromkeys(list(cand_details.keys()) + basket)) if cand_details else basket
+
+    for sym in all_symbols[:12]:
         is_active = (sym in active_symbols)
-        sym_p = basket_prices.get(sym, 0.0)
+        c_info = cand_details.get(sym, {})
+        sym_p = basket_prices.get(sym, 0.0) or c_info.get("current_price", 0.0)
         if sym_p <= 0.0:
             try:
                 sym_p = client.get_ticker_price(sym) if hasattr(client, "get_ticker_price") else 0.0
             except Exception:
                 sym_p = 0.0
 
-        c_info = cand_details.get(sym, {})
         has_signal = c_info.get("signal_triggered", False)
         status_text = "SNIPING" if is_active else ("SIGNAL CONFIRMED" if has_signal else "MONITORING")
         setup_desc = c_info.get("setup_name", f"Consolidating ({basket_vol.get(sym, 0.0):.1f}% ATR)")

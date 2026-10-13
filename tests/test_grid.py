@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from bot.grid import calculate_grid_levels, run_grid_cycle, select_best_halal_asset
+from bot.grid import calculate_grid_levels, discover_top_momentum_symbols, run_grid_cycle, select_best_halal_asset
 from tests.base import BaseTestCase
 
 
@@ -200,6 +200,22 @@ class TestHalalGrid(BaseTestCase):
             # Must NOT be NEAR because NEAR is at 3 levels
             self.assertNotEqual(new_buys[0]["symbol"], "NEAR/USDT")
             self.assertLessEqual(len(self.state["open_positions"]), 5)
+
+    def test_discover_top_momentum_symbols(self):
+        client = MagicMock()
+        client.fetch_all_tickers.return_value = {
+            "BTC/USDT": {"quoteVolume": 50000000.0, "percentage": 2.5, "last": 65000.0},
+            "PEPE/USDT": {"quoteVolume": 15000000.0, "percentage": 14.8, "last": 0.00001},
+            "LOWVOL/USDT": {"quoteVolume": 50000.0, "percentage": 25.0, "last": 1.0},
+            "BTCDOWN/USDT": {"quoteVolume": 5000000.0, "percentage": 30.0, "last": 2.0},
+            "SOL/USDT": {"quoteVolume": 20000000.0, "percentage": 8.2, "last": 150.0},
+        }
+        runners = discover_top_momentum_symbols(client, min_volume_usdt=2000000.0, max_symbols=3)
+        self.assertIn("PEPE/USDT", runners)
+        self.assertIn("SOL/USDT", runners)
+        self.assertNotIn("LOWVOL/USDT", runners)   # filtered out by volume
+        self.assertNotIn("BTCDOWN/USDT", runners)  # filtered out by exclusion list
+        self.assertEqual(runners[0], "PEPE/USDT")  # highest percentage
 
 
 if __name__ == "__main__":

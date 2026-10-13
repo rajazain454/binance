@@ -16,7 +16,7 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
 
     W = 90
     print("=" * W)
-    print(f"  BINANCE HALAL SPOT 15m SNIPER SCALPER  |  MODE: {mode}  |  TF: {config['timeframe']}")
+    print(f"  BINANCE 350-COIN MOMENTUM SURFER  |  24/7 DYNAMIC SCAN  |  MODE: {mode}  |  TF: {config['timeframe']}")
     print("=" * W)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)

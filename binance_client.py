@@ -120,6 +120,13 @@ class BinanceClient:
         return df
 
     @retry_on_network_error(max_retries=3, initial_delay=1.0)
+    def fetch_all_tickers(self):
+        """Fetches 24h ticker data for all active Binance markets in a single call."""
+        if hasattr(self.exchange, "fetch_tickers"):
+            return self.exchange.fetch_tickers()
+        return {}
+
+    @retry_on_network_error(max_retries=3, initial_delay=1.0)
     def get_ticker_price(self, symbol):
         ticker = self.exchange.fetch_ticker(symbol)
         return float(ticker["last"])

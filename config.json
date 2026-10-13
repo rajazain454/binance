@@ -16,7 +16,10 @@
   "timeframe": "15m",
   "grid_trading": {
     "enabled": true,
-    "strategy_name": "Halal 15m Confluence Scalper",
+    "strategy_name": "Binance 350-Coin Momentum Surfer",
+    "scan_all_pairs": true,
+    "min_24h_volume_usdt": 2000000.0,
+    "max_candidates_to_analyze": 15,
     "require_confluence_signal": true,
     "halal_basket": [
       "SOL/USDT",
@@ -25,18 +28,18 @@
       "LINK/USDT"
     ],
     "macro_benchmark": "BTC/USDT",
-    "order_size_usdt": 25.0,
+    "order_size_usdt": 30.0,
     "max_grid_levels": 2,
     "max_active_coins": 2,
     "max_levels_per_coin": 1,
     "min_step_pct": 0.015,
     "min_cash_reserve_usdt": 25.0,
-    "target_tp_pct": 0.012,
-    "stop_loss_pct": 0.018,
-    "breakeven_trigger_pct": 0.008,
+    "target_tp_pct": 0.028,
+    "stop_loss_pct": 0.020,
+    "breakeven_trigger_pct": 0.012,
     "trailing_take_profit": {
       "enabled": true,
-      "callback_pct": 0.004
+      "callback_pct": 0.005
     }
   },
   "macro_regime_filter": {

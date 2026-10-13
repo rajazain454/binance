@@ -1,45 +1,44 @@
 {
-  "balance_usdt": 74.56844575655289,
+  "balance_usdt": 70.0,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-13T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
-    "d1c80970": {
-      "position_id": "d1c80970",
-      "symbol": "NEAR/USDT",
+    "bdac4796": {
+      "position_id": "bdac4796",
+      "symbol": "HFT/USDT",
       "direction": "BUY_SPOT",
-      "entry_time": "2026-10-13T14:49:41.511370+00:00",
-      "entry_price": 5.087,
-      "curr_price": 5.026,
-      "stop_loss": 4.9954339999999995,
-      "take_profit": 5.178028571428571,
-      "allocated_usdt": 25.0,
-      "unrealized_pnl": -0.29978376253194383,
-      "unrealized_pnl_pct": -1.1991350501277753,
+      "entry_time": "2026-10-13T15:02:25.085944+00:00",
+      "entry_price": 0.00711,
+      "curr_price": 0.00711,
+      "stop_loss": 0.0069678,
+      "take_profit": 0.007417885714285714,
+      "allocated_usdt": 30.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
       "trailing_active": false,
-      "peak_price": 5.087,
-      "setup_name": "Oversold Bounce (RSI 53)"
+      "peak_price": 0.00711,
+      "setup_name": "Oversold Bounce (RSI 37)"
     }
   },
   "loss_cooldowns": {},
-  "trade_count": 2,
-  "win_count": 1,
-  "loss_count": 1,
-  "realized_pnl_usdt": -0.43155424344710935,
-  "last_update": "2026-10-13 15:00:53",
+  "trade_count": 0,
+  "win_count": 0,
+  "loss_count": 0,
+  "realized_pnl_usdt": 0.0,
+  "last_update": "2026-10-13 15:02:25",
   "last_digest_date": "2026-10-13",
-  "last_hourly_alert": "2026-10-13 13:00:59",
+  "last_hourly_alert": null,
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "SOL/USDT",
+    "active_symbol": "HFT/USDT",
     "active_symbols": [
-      "NEAR/USDT"
+      "HFT/USDT"
     ],
-    "total_grid_profit_usdt": -0.43155424344710935,
-    "cycles_completed": 2,
-    "grid_trades": 3
-  },
-  "trades_won": 1
+    "total_grid_profit_usdt": 0.0,
+    "cycles_completed": 0,
+    "grid_trades": 1
+  }
 }
