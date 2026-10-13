@@ -3,95 +3,17 @@
   "binance": {
     "api_key": "",
     "api_secret": "",
-    "testnet": false
+    "testnet": false,
+    "use_vision_api": true
   },
   "symbols": [
-    "BTC/USDT",
-    "ETH/USDT",
     "SOL/USDT",
-    "BNB/USDT",
-    "XRP/USDT",
-    "DOGE/USDT",
-    "ADA/USDT",
     "AVAX/USDT",
-    "LINK/USDT",
     "NEAR/USDT",
-    "SUI/USDT",
-    "APT/USDT",
-    "INJ/USDT",
-    "TIA/USDT",
-    "RENDER/USDT",
-    "FET/USDT",
-    "SEI/USDT",
-    "ARB/USDT",
-    "OP/USDT",
-    "DOT/USDT"
+    "LINK/USDT",
+    "BTC/USDT"
   ],
   "timeframe": "1h",
-  "ai_model": {
-    "confidence_threshold": 0.40,
-    "min_strategy_score": 20.0,
-    "require_bull_supertrend": true,
-    "require_active_setup": true,
-    "min_cmf": -0.02,
-    "max_rsi": 78.0,
-    "max_bb_pos": 1.20,
-    "lookback_bars": 300,
-    "horizon_bars": 12,
-    "tp1_atr_mult": 1.5,
-    "tp2_atr_mult": 2.8,
-    "sl_atr_mult": 1.2,
-    "partial_tp_ratio": 0.50,
-    "breakeven_lock_enabled": true
-  },
-  "macro_regime_filter": {
-    "enabled": true,
-    "benchmark_symbol": "BTC/USDT",
-    "sma_period": 200,
-    "hysteresis_pct": 0.01,
-    "block_new_entries_in_bear": true
-  },
-  "mtf_confluence": {
-    "enabled": true,
-    "macro_timeframe": "4h",
-    "macro_ema_period": 50,
-    "macro_rsi_min": 48.0
-  },
-  "correlation_filter": {
-    "enabled": true,
-    "max_correlation": 0.75,
-    "lookback_bars": 720
-  },
-  "trailing_stop": {
-    "enabled": true,
-    "type": "chandelier",
-    "atr_mult": 2.2
-  },
-  "risk_management": {
-    "capital_usdt": 100.0,
-    "min_notional_usdt": 5.0,
-    "risk_per_trade_pct": 2.0,
-    "max_open_trades": 2,
-    "min_cash_reserve_pct": 0.15,
-    "max_trade_allocation_pct": 0.45,
-    "loss_cooldown_hours": 12,
-    "btc_cascade_halt_pct": -0.025,
-    "volatility_scaling_enabled": true,
-    "daily_max_drawdown_pct": 8.0,
-    "circuit_breaker_hours": 24,
-    "max_holding_hours": 48,
-    "dynamic_alpha_sizing": true,
-    "fee_rate": 0.00075,
-    "slippage_rate": 0.0005
-  },
-  "execution": {
-    "use_native_oco": false
-  },
-  "discord": {
-    "enabled": true,
-    "webhook_url": "",
-    "hourly_radar_alert": true
-  },
   "grid_trading": {
     "enabled": true,
     "halal_basket": [
@@ -106,9 +28,30 @@
     "min_step_pct": 0.012,
     "min_cash_reserve_usdt": 15.0
   },
+  "macro_regime_filter": {
+    "enabled": true,
+    "benchmark_symbol": "BTC/USDT",
+    "sma_period": 200,
+    "hysteresis_pct": 0.01,
+    "block_new_entries_in_bear": true
+  },
+  "risk_management": {
+    "capital_usdt": 100.0,
+    "min_notional_usdt": 5.0,
+    "max_open_trades": 5,
+    "min_cash_reserve_pct": 0.15,
+    "daily_max_drawdown_pct": 8.0,
+    "circuit_breaker_hours": 24,
+    "fee_rate": 0.00075,
+    "slippage_rate": 0.0005
+  },
+  "discord": {
+    "enabled": true,
+    "webhook_url": "",
+    "hourly_radar_alert": true
+  },
   "paths": {
     "data_dir": "data",
-    "models_dir": "models",
     "logs_dir": "logs",
     "state_file": "bot_state.json",
     "trade_ledger": "logs/trade_history.csv"

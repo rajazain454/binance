@@ -1,4 +1,4 @@
-"""Main execution loop and CLI entrypoint for QuantLab Trading Bot."""
+"""Main execution loop and CLI entrypoint for Halal Spot Volatility Grid Bot."""
 
 import argparse
 from datetime import datetime, timezone
@@ -7,23 +7,19 @@ import logging
 import os
 import sys
 import time
-import joblib
 
 from binance_client import BinanceClient
 from bot.alerts import send_daily_digest, send_discord_alert
 from bot.dashboard import print_dashboard
 from bot.grid import run_grid_cycle
-from bot.positions import check_and_update_positions, render_trade_progress
-from bot.scanner import scan_and_execute
 from bot.state import load_state, reconcile_positions, save_state
-from models import check_model_staleness
 from utils import load_config, setup_logger
 
 logger = logging.getLogger("quantlab")
 
 
-def execute_cycle(client, model_bundle, config):
-    """Executes a single market scan, position management, and alert dispatch cycle."""
+def execute_cycle(client, config, model_bundle=None):
+    """Executes a single market scan, grid cycle, and alert dispatch."""
     state_path = config["paths"]["state_file"]
     state = load_state(state_path, initial_capital=config["risk_management"]["capital_usdt"])
 
@@ -34,133 +30,94 @@ def execute_cycle(client, model_bundle, config):
     new_signals = []
     closed_signals = []
     analysis_rows = []
-    cb_status = "NORMAL"
 
-    grid_enabled = config.get("grid_trading", {}).get("enabled", False)
-    if grid_enabled:
-        new_grid_buys, harvested_profits, grid_status = run_grid_cycle(client, state, config)
-        cb_status = grid_status.get("status", "ACTIVE_HARVESTING")
+    # Run Halal Spot Volatility Grid cycle
+    new_grid_buys, harvested_profits, grid_status = run_grid_cycle(client, state, config)
+    cb_status = grid_status.get("status", "ACTIVE_HARVESTING")
 
-        for h in harvested_profits:
-            closed_signals.append({
-                "symbol": h["symbol"],
-                "action": "GRID_HARVEST",
-                "entry_price": h["entry_price"],
-                "exit_price": h["exit_price"],
-                "net_pnl": h["net_pnl"],
-                "pnl_pct": h["pnl_pct"],
-                "outcome": "WIN",
-                "position_id": h["position_id"],
-                "reason": h["reason"],
-            })
+    for h in harvested_profits:
+        closed_signals.append({
+            "symbol": h["symbol"],
+            "action": "GRID_HARVEST",
+            "entry_price": h["entry_price"],
+            "exit_price": h["exit_price"],
+            "net_pnl": h["net_pnl"],
+            "pnl_pct": h["pnl_pct"],
+            "outcome": "WIN",
+            "position_id": h["position_id"],
+            "reason": h["reason"],
+        })
 
-        for b in new_grid_buys:
-            new_signals.append({
-                "symbol": b["symbol"],
-                "action": "GRID_BUY",
-                "price": b["entry_price"],
-                "tp2": b["take_profit"],
-                "stop_loss": b["entry_price"] * 0.95,
-                "size_usdt": b["allocated_usdt"],
-                "confidence_pct": 100.0,
-                "strategy_setups": "Adaptive Halal Volatility Grid",
-                "strategy_score": 95.0,
-                "indicators_summary": f"Targeting +{((b['take_profit']/b['entry_price'])-1)*100:.1f}% bounce oscillation",
-            })
+    for b in new_grid_buys:
+        new_signals.append({
+            "symbol": b["symbol"],
+            "action": "GRID_BUY",
+            "price": b["entry_price"],
+            "tp2": b["take_profit"],
+            "stop_loss": b.get("stop_loss", b["entry_price"] * 0.95),
+            "size_usdt": b["allocated_usdt"],
+            "confidence_pct": 100.0,
+            "strategy_setups": "Adaptive Halal Volatility Grid",
+            "strategy_score": 95.0,
+            "indicators_summary": f"Targeting +{((b['take_profit']/b['entry_price'])-1)*100:.1f}% bounce oscillation",
+        })
 
-        basket = config.get("grid_trading", {}).get("halal_basket", ["SOL/USDT", "AVAX/USDT", "NEAR/USDT", "LINK/USDT"])
-        for sym in basket:
-            is_active = (sym == grid_status.get("active_symbol"))
-            status_text = "HARVESTING" if is_active else "MONITORING"
-            analysis_rows.append({
-                "symbol": sym,
-                "price": grid_status.get("current_price", 0.0) if is_active else 0.0,
-                "prob_win": 0.85 if is_active else 0.50,
-                "strategy_score": 90.0 if is_active else 60.0,
-                "active_setups": ["Halal Volatility Grid"] if is_active else ["Monitoring Basket"],
-                "mtf_status": "BULL TREND" if is_active else "NORMAL",
-                "status": status_text,
-            })
-    else:
-        # 1. Update existing positions
-        closed_signals = check_and_update_positions(client, state, config)
+    basket = config.get("grid_trading", {}).get("halal_basket", ["SOL/USDT", "AVAX/USDT", "NEAR/USDT", "LINK/USDT"])
+    for sym in basket:
+        is_active = (sym == grid_status.get("active_symbol"))
+        status_text = "HARVESTING" if is_active else "MONITORING"
+        analysis_rows.append({
+            "symbol": sym,
+            "price": grid_status.get("current_price", 0.0) if is_active else 0.0,
+            "prob_win": 0.85 if is_active else 0.50,
+            "strategy_score": 90.0 if is_active else 60.0,
+            "active_setups": ["Halal Volatility Grid"] if is_active else ["Monitoring Basket"],
+            "mtf_status": "BULL TREND" if is_active else "NORMAL",
+            "status": status_text,
+        })
 
-        # 2. Scan market and execute new orders
-        analysis_rows, new_signals, cb_status = scan_and_execute(client, model_bundle, state, config)
-
-    # 3. Print CLI dashboard
+    # Print CLI dashboard
     print_dashboard(analysis_rows, new_signals, closed_signals, state, config, cb_status)
 
-    # 4. Discord alerts
+    # Discord alerts
     discord_cfg = config.get("discord", {})
     webhook = os.getenv("DISCORD_WEBHOOK_URL", discord_cfg.get("webhook_url", "")).strip()
     if discord_cfg.get("enabled", False) and webhook:
         for s in new_signals:
             entry_p = s["price"]
             tp2_p = s.get("tp2", entry_p * 1.02)
-            sl_p = s.get("stop_loss", entry_p * 0.98)
+            sl_p = s.get("stop_loss", entry_p * 0.95)
             est_win_pct = ((tp2_p / entry_p) - 1.0) * 100
             est_loss_pct = ((sl_p / entry_p) - 1.0) * 100
-
-            strat_label = s.get("strategy_setups", "AI Multi-Tool Confluence")
-            strat_score_val = s.get("strategy_score", s.get("confidence_pct", 60.0))
-            ind_summary = s.get("indicators_summary", "RSI / Bollinger / StochRSI Aligned")
 
             fields = [
                 {"name": "🪙 Coin", "value": f"**{s['symbol']}**", "inline": True},
                 {"name": "💵 Amount Bought", "value": f"**${s['size_usdt']:.2f} USDT**", "inline": True},
-                {"name": "📈 Buy Price", "value": f"${entry_p:,.2f}", "inline": True},
-                {"name": "🎯 Target Price (Take Profit)", "value": f"**${tp2_p:,.2f}** ({est_win_pct:+.2f}%)", "inline": True},
-                {"name": "🛡️ Safety Price (Stop Loss)", "value": f"${sl_p:,.2f} ({est_loss_pct:+.2f}%)", "inline": True},
-                {"name": "🤖 AI Confidence", "value": f"**{s['confidence_pct']:.0f}%**", "inline": True},
-                {"name": "🎯 Strategy Setup", "value": f"**{strat_label}** (Score: {strat_score_val:.0f}/100)", "inline": False},
-                {"name": "📊 Technical Indicators", "value": f"`{ind_summary}`", "inline": False},
-                {"name": "📌 Next Steps", "value": "Sit back! The bot is watching the market and will exit automatically.", "inline": False},
+                {"name": "📈 Buy Price", "value": f"${entry_p:,.4f}", "inline": True},
+                {"name": "🎯 Take-Profit Target", "value": f"**${tp2_p:,.4f}** ({est_win_pct:+.2f}%)", "inline": True},
+                {"name": "🛡️ Emergency Stop", "value": f"${sl_p:,.4f} ({est_loss_pct:+.2f}%)", "inline": True},
+                {"name": "🕌 Shariah Status", "value": "100% Spot Asset Ownership (*Qabd*)", "inline": True},
+                {"name": "⚙️ Strategy", "value": "**Adaptive Halal Volatility Grid**", "inline": False},
             ]
-            title = f"🟢 BOUGHT {s['symbol']} (${s['size_usdt']:.2f})"
-            desc = f"The AI detected a high-probability buying opportunity on **{s['symbol']}** using **{strat_label}**."
+            title = f"🟢 SPOT GRID BUY: {s['symbol']} (${s['size_usdt']:.2f})"
+            desc = f"Dip harvested on **{s['symbol']}**. Automated Spot order placed."
             send_discord_alert(webhook, title, fields, color=3066993, description=desc)
 
         for cs in closed_signals:
-            action = cs.get("action", "")
             pnl_val = cs["net_pnl"]
             pnl_pct = cs["pnl_pct"]
+            title = f"💰 GRID PROFIT HARVESTED: {cs['symbol']}"
+            fields = [
+                {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
+                {"name": "💵 Net Profit Booked", "value": f"**+${pnl_val:,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
+                {"name": "🏁 Sold At", "value": f"${cs['exit_price']:,.4f}", "inline": True},
+                {"name": "📈 Bought At", "value": f"${cs['entry_price']:,.4f}", "inline": True},
+                {"name": "📊 Total Grid Profits", "value": f"**${state.get('grid_state', {}).get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
+                {"name": "🕌 Shariah Status", "value": "100% Halal Commerce (*Bay'*)", "inline": True},
+            ]
+            send_discord_alert(webhook, title, fields, color=5763719)
 
-            if action == "BREAKEVEN LOCK (SMALL ACCOUNT)":
-                title = f"🛡️ STOP LOSS MOVED TO BREAKEVEN: {cs['symbol']}"
-                color = 3447003  # Blue
-                fields = [
-                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
-                    {"name": "🔒 Trade Status", "value": "**100% Position Still Open (Risk-Free)**", "inline": True},
-                    {"name": "🎯 Trigger Price", "value": f"${cs['exit_price']:,.2f}", "inline": True},
-                    {"name": "🛡️ Protected Breakeven SL", "value": f"**${cs['entry_price']:,.2f}**", "inline": True},
-                    {"name": "ℹ️ Note", "value": cs["reason"], "inline": False},
-                    {"name": "🚀 Next Target", "value": "Position is still open and running risk-free toward TP2!", "inline": False},
-                ]
-            elif action == "PARTIAL TP1 (50% SOLD)":
-                title = f"🎯 TP1 HIT (50% PROFIT SECURED): {cs['symbol']}"
-                color = 5763719  # Green
-                fields = [
-                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
-                    {"name": "💰 Booked Profit (50%)", "value": f"**${pnl_val:+,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
-                    {"name": "🏁 Sold 50% At", "value": f"${cs['exit_price']:,.2f}", "inline": True},
-                    {"name": "🛡️ Remaining 50%", "value": f"Stop Loss locked to Entry (${cs['entry_price']:,.2f}) — Risk-Free!", "inline": False},
-                    {"name": "ℹ️ Reason", "value": cs["reason"], "inline": False},
-                ]
-            else:
-                is_win = cs["outcome"] == "WIN"
-                color = 5763719 if is_win else 15548997
-                title = f"🎉 WON TRADE: {cs['symbol']}" if is_win else f"🛡️ TRADE CLOSED: {cs['symbol']}"
-                fields = [
-                    {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
-                    {"name": "💰 Net Profit / Loss", "value": f"**${pnl_val:+,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
-                    {"name": "🏁 Exit Price", "value": f"${cs['exit_price']:,.2f}", "inline": True},
-                    {"name": "📈 Entry Price", "value": f"${cs['entry_price']:,.2f}", "inline": True},
-                    {"name": "ℹ️ Reason", "value": cs["reason"], "inline": False},
-                ]
-            send_discord_alert(webhook, title, fields, color=color)
-
-        # Hourly Radar & Position Status Alert
+        # Hourly Radar Alert
         hourly_radar_enabled = discord_cfg.get("hourly_radar_alert", False)
         if hourly_radar_enabled and not new_signals and not closed_signals:
             now_utc = datetime.now(timezone.utc)
@@ -187,39 +144,24 @@ def execute_cycle(client, model_bundle, config):
                         u_pnl = p.get("unrealized_pnl", 0.0)
                         u_pct = p.get("unrealized_pnl_pct", 0.0)
                         total_equity += (p["allocated_usdt"] + u_pnl)
-                        tp1_val = p.get("take_profit_1", p.get("take_profit", 0.0))
-                        sl_val = p.get("stop_loss", 0.0)
-                        gauge = render_trade_progress(c_p, p["entry_price"], tp1_val, sl_val)
+                        tp_target = p.get("take_profit", p["entry_price"] * 1.015)
                         pos_lines.append(
-                            f"• **{psym}**: Now `${c_p:,.2f}` | Entry `${p['entry_price']:,.2f}` | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%)\n"
-                            f"  🎯 Target: {gauge} | SL: `${sl_val:,.2f}`"
+                            f"• **{p['symbol']}**: Now `${c_p:,.4f}` | Entry `${p['entry_price']:,.4f}` | "
+                            f"PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%) | Target TP: `${tp_target:,.4f}`"
                         )
                     active_str = "\n".join(pos_lines)
                 else:
-                    active_str = "🛡️ 100% Cash Defense (Waiting for high-conviction breakout)"
+                    active_str = "🛡️ 100% Cash Balance (Waiting for next oscillation entry)"
 
-                top_cands = sorted(analysis_rows, key=lambda x: (x["prob_win"], x["strategy_score"]), reverse=True)[:3]
-                cand_lines = []
-                for c in top_cands:
-                    setups_list = c.get("active_setups", [])
-                    if isinstance(setups_list, list) and setups_list:
-                        setups_display = " + ".join(setups_list)
-                    elif setups_list:
-                        setups_display = str(setups_list)
-                    else:
-                        setups_display = "Scanning"
-                    cand_lines.append(f"• **{c['symbol']}**: AI Conviction `{c['prob_win']*100:.1f}%` | Status: `{c['status']}` | Setup: *{setups_display}*")
-                cand_str = "\n".join(cand_lines) if cand_lines else "Scanning..."
-
-                regime_display = state.get("macro_regime", "MACRO REGIME NORMAL")
+                grid_st = state.get("grid_state", {})
                 fields = [
                     {"name": "💼 Total Portfolio Equity", "value": f"**${total_equity:,.2f} USDT** (Free Cash: ${state['balance_usdt']:,.2f})", "inline": False},
-                    {"name": "🛡️ Macro Market Regime", "value": f"`{regime_display}`", "inline": False},
-                    {"name": "📊 Active Positions & Targets", "value": active_str, "inline": False},
-                    {"name": "🎯 Top Market Radar Scans", "value": cand_str, "inline": False},
-                    {"name": "⚙️ Bot Health", "value": "🟢 Online 24/7 | Checking candle close & volatility every cycle", "inline": False},
+                    {"name": "🎯 Active Grid Pair", "value": f"**{grid_st.get('active_symbol', 'NEAR/USDT')}**", "inline": True},
+                    {"name": "💰 Total Harvested Profit", "value": f"**+${grid_st.get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
+                    {"name": "📊 Active Grid Positions", "value": active_str, "inline": False},
+                    {"name": "⚙️ System Health", "value": "🟢 Online 24/7 | Checking order books and market oscillation every cycle", "inline": False},
                 ]
-                title = "📡 Hourly Market Radar & Position Update"
+                title = "📡 Hourly Halal Grid Radar & Portfolio Update"
                 send_discord_alert(webhook, title, fields, color=3447003)
 
     # Save state
@@ -229,9 +171,8 @@ def execute_cycle(client, model_bundle, config):
 
 def main():
     """CLI argument parsing and continuous or single-cycle execution entrypoint."""
-    parser = argparse.ArgumentParser(description="Binance AI Quantitative Trading Bot")
+    parser = argparse.ArgumentParser(description="Halal Spot Volatility Grid Trading Bot")
     parser.add_argument("--config", default="config.json", help="Path to config file")
-    parser.add_argument("--model", default="models/binance_ai_model.joblib", help="Path to model bundle")
     parser.add_argument("--scan", action="store_true", help="Run single scan and exit")
     parser.add_argument("--loop", action="store_true", help="Run continuously on candle close loop")
     parser.add_argument("--capital", type=float, default=None, help="Override starting capital")
@@ -262,9 +203,10 @@ def main():
             {"name": "Status", "value": "Online & Operational", "inline": True},
             {"name": "Trading Mode", "value": config.get("trading_mode", "paper").upper(), "inline": True},
             {"name": "Exchange", "value": "Binance Spot", "inline": True},
+            {"name": "Strategy", "value": "Halal Spot Volatility Grid", "inline": True},
             {"name": "Timeframe", "value": config.get("timeframe", "1h"), "inline": True},
         ]
-        ok, res = send_discord_alert(webhook, "🤖 QuantLab Binance AI Bot Test Alert", fields, color=3447003)
+        ok, res = send_discord_alert(webhook, "🤖 Halal Quantitative Spot Grid Bot Test Alert", fields, color=3447003)
         logger.info("Discord test result: %s", res)
         if not args.scan and not args.loop:
             return
@@ -272,27 +214,13 @@ def main():
     if args.capital:
         config["risk_management"]["capital_usdt"] = args.capital
 
-    model_bundle = None
-    if os.path.exists(args.model):
-        try:
-            model_bundle = joblib.load(args.model)
-            is_stale, age_days, stale_msg = check_model_staleness(model_bundle)
-            if is_stale:
-                logger.warning("[MODEL STALENESS WARNING] %s", stale_msg)
-            else:
-                logger.info("[MODEL STATUS] %s", stale_msg)
-        except Exception as e:
-            logger.warning("Could not load model bundle: %s", e)
-    elif not config.get("grid_trading", {}).get("enabled", False):
-        sys.exit(f"Model file '{args.model}' not found. Please run 'python train.py' first.")
-
     client = BinanceClient(config)
 
-    execute_cycle(client, model_bundle, config)
+    execute_cycle(client, config)
 
     if args.loop:
-        tf_sec = 3600 if config["timeframe"] == "1h" else (14400 if config["timeframe"] == "4h" else 86400)
-        logger.info("[Loop Active] Monitoring Binance on %s candles...", config["timeframe"])
+        tf_sec = 3600 if config["timeframe"] == "1h" else 1800
+        logger.info("[Loop Active] Monitoring Binance Halal Grid on %s intervals...", config["timeframe"])
         last_digest_date = datetime.now(timezone.utc).date()
         while True:
             now_dt = datetime.now(timezone.utc)
@@ -307,7 +235,7 @@ def main():
             sleep_time = tf_sec - (now % tf_sec) + 10
             time.sleep(sleep_time)
             try:
-                execute_cycle(client, model_bundle, config)
+                execute_cycle(client, config)
             except Exception as e:
                 logger.error("Cycle execution error: %s", e, exc_info=True)
 
