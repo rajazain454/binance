@@ -10,9 +10,9 @@
   "win_count": 0,
   "loss_count": 0,
   "realized_pnl_usdt": 0.0,
-  "last_update": "2026-10-14 10:15:00",
+  "last_update": "2026-10-14 10:12:52",
   "last_digest_date": "2026-10-14",
-  "last_hourly_alert": null,
+  "last_hourly_alert": "2026-10-14 10:12:52",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
