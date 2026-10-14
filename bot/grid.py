@@ -469,8 +469,8 @@ def run_grid_cycle(
 
         entry_price = pos["entry_price"]
         allocated_usdt = pos["allocated_usdt"]
-        target_tp = min(pos.get("take_profit", entry_price * (1.0 + target_tp_pct)), entry_price * (1.0 + target_tp_pct))
-        stop_loss = max(pos.get("stop_loss", entry_price * (1.0 - stop_loss_pct)), entry_price * (1.0 - stop_loss_pct))
+        target_tp = pos.get("take_profit", entry_price * (1.0 + target_tp_pct))
+        stop_loss = pos.get("stop_loss", entry_price * (1.0 - stop_loss_pct))
 
         # 3a. BREAKEVEN PROFIT LOCK: If price gained >= +1.0%, eliminate all trade risk!
         gain_pct = (p_price / entry_price) - 1.0
@@ -568,18 +568,18 @@ def run_grid_cycle(
                     should_exit = True
                     outcome = "WIN"
                     harvest_reason = f"Trailing TP Harvest (Peak: ${_fmt(peak)}, Drop: -{callback_pct*100:.2f}%)"
-            elif p_price >= trail_act_price:
+            elif p_price >= trail_act_price or p_price >= target_tp:
                 pos["trailing_active"] = True
                 pos["peak_price"] = p_price
                 logger.info(
                     "🚀 [TRAILING TP ARMED] %s hit activation trigger ($%s, +%.2f%%). Tracking peak price ($%s)...",
                     symbol, _fmt(trail_act_price), trail_act_pct * 100.0, _fmt(p_price)
                 )
-
-        if not should_exit and p_price >= target_tp:
-            should_exit = True
-            outcome = "WIN"
-            harvest_reason = f"Scalp Target Hit (+{gain_pct*100:.2f}%)"
+        else:
+            if not should_exit and p_price >= target_tp:
+                should_exit = True
+                outcome = "WIN"
+                harvest_reason = f"Scalp Target Hit (+{gain_pct*100:.2f}%)"
 
         # 3c. STOP LOSS GUARD
         if not should_exit and p_price <= stop_loss:
@@ -807,17 +807,26 @@ def run_grid_cycle(
                 optimal_entry = retrace_price
             cand_price = round(optimal_entry, 8 if optimal_entry < 0.01 else (4 if optimal_entry < 10 else 2))
 
-        # Strict Scalper Take-Profit and Stop Loss Targets
-        elastic_tp_pct = target_tp_pct
-        elastic_sl_pct = stop_loss_pct
+        # Dynamic ATR-Based Take-Profit and Stop Loss
+        atr_enabled = grid_cfg.get("atr_scaling_enabled", True)
+        if atr_enabled and cand_price > 0 and cand_atr > 0:
+            atr_pct = (cand_atr / cand_price)
+            atr_tp_mult = grid_cfg.get("atr_tp_multiplier", 1.8)
+            elastic_tp_pct = min(0.08, max(target_tp_pct, atr_pct * atr_tp_mult))
+            atr_sl_mult = grid_cfg.get("atr_sl_multiplier", 1.2)
+            elastic_sl_pct = min(stop_loss_pct, max(0.004, atr_pct * atr_sl_mult))
+            partial_cfg = grid_cfg.get("partial_take_profit", {})
+            tp1_pct = partial_cfg.get("tp1_pct", 0.018)
+            tp1_price = cand_price * (1.0 + max(tp1_pct, elastic_tp_pct * 0.55))
+        else:
+            elastic_tp_pct = target_tp_pct
+            elastic_sl_pct = stop_loss_pct
+            partial_cfg = grid_cfg.get("partial_take_profit", {})
+            tp1_pct = partial_cfg.get("tp1_pct", 0.0050)
+            tp1_price = cand_price * (1.0 + tp1_pct)
 
         target_tp_price = cand_price * (1.0 + elastic_tp_pct)
         stop_loss_price = cand_price * (1.0 - elastic_sl_pct)
-
-        # TP1 Partial scaling target
-        partial_cfg = grid_cfg.get("partial_take_profit", {})
-        tp1_pct = partial_cfg.get("tp1_pct", 0.0065)
-        tp1_price = cand_price * (1.0 + tp1_pct)
 
         # Volatility-Adjusted Position Sizing (Risk Parity)
         vol_size_cfg = grid_cfg.get("volatility_sizing", {})

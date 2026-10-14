@@ -35,12 +35,6 @@ logger = logging.getLogger("quantlab")
 
 def execute_cycle(client, config, model_bundle=None):
     """Executes a single market scan, grid cycle, and alert dispatch."""
-    try:
-        fresh_cfg = load_config()
-        config.clear()
-        config.update(fresh_cfg)
-    except Exception:
-        pass
     state_path = config["paths"]["state_file"]
     state = load_state(state_path, initial_capital=config["risk_management"]["capital_usdt"])
 
