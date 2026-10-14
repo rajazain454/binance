@@ -1,25 +1,46 @@
 {
-  "balance_usdt": 100.0,
+  "balance_usdt": 55.0,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {},
+  "open_positions": {
+    "6d99d5a9": {
+      "position_id": "6d99d5a9",
+      "symbol": "BONK/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-14T00:01:00.992350+00:00",
+      "entry_price": 3.24e-06,
+      "curr_price": 3.24e-06,
+      "stop_loss": 3.1914e-06,
+      "take_profit": 3.3858e-06,
+      "tp1_price": 3.3209999999999996e-06,
+      "partial_tp_taken": false,
+      "allocated_usdt": 45.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 3.24e-06,
+      "setup_name": "Volume Surge (1.8x Vol)"
+    }
+  },
   "loss_cooldowns": {},
   "trade_count": 0,
   "win_count": 0,
   "loss_count": 0,
   "realized_pnl_usdt": 0.0,
-  "last_update": "2026-10-13 23:26:17",
-  "last_digest_date": "2026-10-13",
+  "last_update": "2026-10-14 00:01:01",
+  "last_digest_date": "2026-10-14",
   "last_hourly_alert": "2026-10-13 23:01:02",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "PEPE/USDT",
-    "active_symbols": [],
+    "active_symbol": "BONK/USDT",
+    "active_symbols": [
+      "BONK/USDT"
+    ],
     "total_grid_profit_usdt": 0.0,
     "cycles_completed": 0,
-    "grid_trades": 0
+    "grid_trades": 1
   }
 }
