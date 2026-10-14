@@ -600,8 +600,8 @@ def run_grid_cycle(
                         outcome = "WIN" if p_price >= entry_price else "LOSS"
                         harvest_reason = f"Stale Capital Exit (Held {hours_held:.1f}h without breakout)"
                         logger.info(
-                            "⏳ [STALE EXIT] %s held for %.1fh without breakout. Exiting at $%s to free capital.",
-                            symbol, hours_held, f"{p_price:,.4f}"
+                            "⏳ [STALE EXIT] %s held for %.1fh without breakout. Exiting at %s to free capital.",
+                            symbol, hours_held, _fmt(p_price)
                         )
                 except Exception:
                     pass

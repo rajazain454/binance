@@ -97,7 +97,7 @@ def send_daily_digest(state, config):
         except Exception:
             pass
 
-    from bot.positions import render_trade_progress
+    from bot.positions import render_trade_progress, fmt_price
 
     if open_pos:
         pos_bullets = []
@@ -107,7 +107,7 @@ def send_daily_digest(state, config):
             sl_v = pos.get("stop_loss", curr_p * 0.98)
             g = render_trade_progress(curr_p, pos["entry_price"], tp1_v, sl_v)
             pos_bullets.append(
-                f"• **{sym}**: Size ${pos['allocated_usdt']:,.2f} | Entry: ${pos['entry_price']:.2f} | Now: ${curr_p:.2f} (PnL: ${pos.get('unrealized_pnl', 0.0):+,.2f} / {pos.get('unrealized_pnl_pct', 0.0):+.2f}%)\n"
+                f"• **{sym}**: Size ${pos['allocated_usdt']:,.2f} | Entry: {fmt_price(pos['entry_price'])} | Now: {fmt_price(curr_p)} (PnL: ${pos.get('unrealized_pnl', 0.0):+,.2f} / {pos.get('unrealized_pnl_pct', 0.0):+.2f}%)\n"
                 f"  Target: {g}"
             )
         desc = "Current active positions:\n" + "\n".join(pos_bullets)
@@ -133,7 +133,7 @@ def send_radar_status_alert(state, config):
     if not webhook:
         return False, "No webhook configured."
 
-    from bot.positions import render_trade_progress
+    from bot.positions import render_trade_progress, fmt_price
 
     total_equity = state["balance_usdt"]
     active_str = ""
@@ -152,14 +152,14 @@ def send_radar_status_alert(state, config):
             tp_target = p.get("take_profit", p["entry_price"] * 1.015)
             sl_val = p.get("stop_loss", p["entry_price"] * 0.95)
             gauge = render_trade_progress(c_p, p["entry_price"], tp_target, sl_val)
-            trailing_str = f" | 🚀 *Trailing Peak: ${p.get('peak_price', c_p):,.4f}*" if p.get("trailing_active") else ""
+            trailing_str = f" | 🚀 *Trailing Peak: {fmt_price(p.get('peak_price', c_p))}*" if p.get("trailing_active") else ""
             pos_lines.append(
-                f"• **{sym} (Level {lvl_idx})**: Live `${c_p:,.4f}` (Entry `${p['entry_price']:,.4f}`) | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%){trailing_str}\n"
+                f"• **{sym} (Level {lvl_idx})**: Live `{fmt_price(c_p)}` (Entry `{fmt_price(p['entry_price'])}`) | PnL: `${u_pnl:+.2f}` ({u_pct:+.2f}%){trailing_str}\n"
                 f"  🎯 Target: {gauge}"
             )
         active_str = "\n".join(pos_lines)
     else:
-        active_str = "🛡️ 100% Cash Defense (Scanning 15m candles for confirmed oversold bounce)"
+        active_str = "🛡️ 100% Cash Defense (Scanning 15m candles for confirmed volume surge or oversold reclaim)"
 
     grid_st = state.get("grid_state", {})
     active_syms = grid_st.get("active_symbols") or [grid_st.get("active_symbol", "SOL/USDT")]

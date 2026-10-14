@@ -14,6 +14,7 @@ from binance_client import BinanceClient
 from bot.alerts import send_daily_digest, send_discord_alert
 from bot.dashboard import print_dashboard
 from bot.grid import run_grid_cycle
+from bot.positions import fmt_price
 from bot.state import load_state, reconcile_positions, save_state
 from utils import load_config, setup_logger
 
@@ -135,11 +136,11 @@ def execute_cycle(client, config, model_bundle=None):
             fields = [
                 {"name": "🪙 Coin", "value": f"**{s['symbol']}**", "inline": True},
                 {"name": "💵 Amount Bought", "value": f"**${s['size_usdt']:.2f} USDT**", "inline": True},
-                {"name": "📈 Buy Price", "value": f"${entry_p:,.4f}", "inline": True},
-                {"name": "🎯 Take-Profit Target", "value": f"**${tp2_p:,.4f}** ({est_win_pct:+.2f}%)", "inline": True},
-                {"name": "🛡️ Emergency Stop", "value": f"${sl_p:,.4f} ({est_loss_pct:+.2f}%)", "inline": True},
+                {"name": "📈 Buy Price", "value": f"{fmt_price(entry_p)}", "inline": True},
+                {"name": "🎯 Take-Profit Target", "value": f"**{fmt_price(tp2_p)}** ({est_win_pct:+.2f}%)", "inline": True},
+                {"name": "🛡️ Emergency Stop", "value": f"{fmt_price(sl_p)} ({est_loss_pct:+.2f}%)", "inline": True},
                 {"name": "🕌 Shariah Status", "value": "100% Spot Asset Ownership (*Qabd*)", "inline": True},
-                {"name": "⚙️ Strategy", "value": "**Adaptive Halal Volatility Grid**", "inline": False},
+                {"name": "⚙️ Strategy", "value": f"**{config.get('grid_trading', {}).get('strategy_name', 'Top-10 Memecoin Rocket Engine')}**", "inline": False},
             ]
             title = f"🟢 SPOT GRID BUY: {s['symbol']} (${s['size_usdt']:.2f})"
             desc = f"Dip harvested on **{s['symbol']}**. Automated Spot order placed."
@@ -152,8 +153,8 @@ def execute_cycle(client, config, model_bundle=None):
             fields = [
                 {"name": "🪙 Coin", "value": f"**{cs['symbol']}**", "inline": True},
                 {"name": "💵 Net Profit Booked", "value": f"**+${pnl_val:,.2f} USDT** ({pnl_pct:+.2f}%)", "inline": True},
-                {"name": "🏁 Sold At", "value": f"${cs['exit_price']:,.4f}", "inline": True},
-                {"name": "📈 Bought At", "value": f"${cs['entry_price']:,.4f}", "inline": True},
+                {"name": "🏁 Sold At", "value": f"{fmt_price(cs['exit_price'])}", "inline": True},
+                {"name": "📈 Bought At", "value": f"{fmt_price(cs['entry_price'])}", "inline": True},
                 {"name": "📊 Total Grid Profits", "value": f"**${state.get('grid_state', {}).get('total_grid_profit_usdt', 0.0):.2f} USDT**", "inline": True},
                 {"name": "🕌 Shariah Status", "value": "100% Halal Commerce (*Bay'*)", "inline": True},
             ]

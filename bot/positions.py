@@ -20,13 +20,27 @@ def round_price(val: float) -> float:
         return round(val, 4)
 
 
+def fmt_price(p: float) -> str:
+    """Formats prices with appropriate precision across micro-cap memecoins and macro assets."""
+    if p <= 0:
+        return "$0.00"
+    if p >= 100:
+        return f"${p:,.2f}"
+    elif p >= 1:
+        return f"${p:,.4f}"
+    elif p >= 0.001:
+        return f"${p:.6f}"
+    else:
+        return f"${p:.8f}"
+
+
 def render_trade_progress(curr_p, entry_p, tp1, sl, length=10):
     """
     Renders visual ASCII progress gauge indicating progress towards TP1 or SL.
-    Example: `[██████░░░░] 60% to TP1 ($793.38)`
+    Example: `[██████░░░░] 60% to TP1 ($0.00000338)`
     """
     if tp1 <= entry_p or sl >= entry_p:
-        return f"TP1: ${tp1:,.2f} | SL: ${sl:,.2f}"
+        return f"TP1: {fmt_price(tp1)} | SL: {fmt_price(sl)}"
 
     if curr_p >= entry_p:
         tp_dist = tp1 - entry_p
@@ -35,7 +49,7 @@ def render_trade_progress(curr_p, entry_p, tp1, sl, length=10):
         filled = int(round(pct * length))
         bar = "█" * filled + "░" * (length - filled)
         pct_label = int(round(pct * 100))
-        return f"`[{bar}]` **{pct_label}% to TP1** (`${tp1:,.2f}`)"
+        return f"`[{bar}]` **{pct_label}% to TP1** (`{fmt_price(tp1)}`)"
     else:
         sl_dist = entry_p - sl
         loss = entry_p - curr_p
@@ -43,7 +57,7 @@ def render_trade_progress(curr_p, entry_p, tp1, sl, length=10):
         filled = int(round(pct * length))
         bar = "▓" * filled + "░" * (length - filled)
         pct_label = int(round(pct * 100))
-        return f"`[{bar}]` **{pct_label}% to SL** (`${sl:,.2f}`)"
+        return f"`[{bar}]` **{pct_label}% to SL** (`{fmt_price(sl)}`)"
 
 
 def check_and_update_positions(client, state, config):
