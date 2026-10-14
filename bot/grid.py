@@ -697,13 +697,20 @@ def run_grid_cycle(
 
     # 4. Check for New High-Probability Sniper Scalp Entries
     new_buys = []
-    max_open_trades = grid_cfg.get("max_grid_levels", 2)
-    order_size_usdt = grid_cfg.get("order_size_usdt", 25.0)
-    min_cash_reserve = grid_cfg.get("min_cash_reserve_usdt", 25.0)
+    max_open_trades = grid_cfg.get("max_grid_levels", 1)
+    min_cash_reserve = grid_cfg.get("min_cash_reserve_usdt", 5.0)
+    available_cash = max(0.0, state["balance_usdt"] - min_cash_reserve)
+
+    # Dynamic Geometric Compounding Allocation
+    compounding_cfg = grid_cfg.get("compounding", {})
+    if compounding_cfg.get("enabled", False) and available_cash > 10.0:
+        alloc_pct = min(0.95, max(0.20, compounding_cfg.get("allocation_pct", 0.90)))
+        order_size_usdt = round(available_cash * alloc_pct, 2)
+    else:
+        order_size_usdt = grid_cfg.get("order_size_usdt", 25.0)
 
     coins_with_positions = set(p["symbol"] for p in state["open_positions"].values())
     total_open_positions = len(state["open_positions"])
-    available_cash = state["balance_usdt"] - min_cash_reserve
 
     candidates = top_asset.get("all_candidates", [top_asset])
 

@@ -29,8 +29,9 @@ def print_dashboard(analysis_rows, new_signals, closed_signals, state, config, c
     total_equity = balance + total_alloc + total_unrealized
 
     W = 92
+    strat_name = config.get("grid_trading", {}).get("strategy_name", "BINANCE COMPOUNDING SCALPER").upper()
     print("=" * W)
-    print(f"  BINANCE TOP-10 MEMECOIN ROCKET ENGINE  |  MODE: {mode}  |  TF: {config['timeframe']}")
+    print(f"  {strat_name}  |  MODE: {mode}  |  TF: {config['timeframe']}")
     print("=" * W)
     win_cnt = state.get("win_count", 0)
     total_cnt = state.get("trade_count", 0)

@@ -7,57 +7,56 @@
     "use_vision_api": true
   },
   "symbols": [
-    "PEPE/USDT",
+    "SOL/USDT",
     "WIF/USDT",
-    "BONK/USDT",
-    "FLOKI/USDT",
-    "NEIRO/USDT",
-    "TURBO/USDT",
-    "BOME/USDT",
+    "PEPE/USDT",
     "DOGE/USDT",
-    "SHIB/USDT"
+    "NEAR/USDT",
+    "SUI/USDT"
   ],
   "timeframe": "15m",
   "grid_trading": {
     "enabled": true,
-    "strategy_name": "Binance Top-10 Memecoin Rocket Engine",
+    "strategy_name": "Binance High-Velocity Compounding Scalper",
     "scan_all_pairs": false,
     "min_24h_volume_usdt": 2000000.0,
-    "max_candidates_to_analyze": 9,
+    "max_candidates_to_analyze": 6,
     "require_confluence_signal": true,
     "halal_basket": [
-      "PEPE/USDT",
+      "SOL/USDT",
       "WIF/USDT",
-      "BONK/USDT",
-      "FLOKI/USDT",
-      "NEIRO/USDT",
-      "TURBO/USDT",
-      "BOME/USDT",
+      "PEPE/USDT",
       "DOGE/USDT",
-      "SHIB/USDT"
+      "NEAR/USDT",
+      "SUI/USDT"
     ],
     "macro_benchmark": "BTC/USDT",
-    "order_size_usdt": 45.0,
-    "max_grid_levels": 2,
-    "max_active_coins": 2,
+    "order_size_usdt": 85.0,
+    "compounding": {
+      "enabled": true,
+      "allocation_pct": 0.90,
+      "reinvest_profit": true
+    },
+    "max_grid_levels": 1,
+    "max_active_coins": 1,
     "max_levels_per_coin": 1,
-    "min_step_pct": 0.015,
-    "min_cash_reserve_usdt": 10.0,
-    "target_tp_pct": 0.045,
-    "stop_loss_pct": 0.025,
-    "breakeven_trigger_pct": 0.015,
-    "vol_spike_multiplier": 1.8,
+    "min_step_pct": 0.012,
+    "min_cash_reserve_usdt": 5.0,
+    "target_tp_pct": 0.025,
+    "stop_loss_pct": 0.015,
+    "breakeven_trigger_pct": 0.010,
+    "vol_spike_multiplier": 1.5,
     "mtf_guard_enabled": true,
-    "atr_tp_multiplier": 2.0,
+    "atr_tp_multiplier": 1.8,
     "atr_sl_multiplier": 1.2,
     "partial_take_profit": {
-      "enabled": true,
-      "tp1_pct": 0.025,
+      "enabled": false,
+      "tp1_pct": 0.020,
       "ratio": 0.5
     },
     "trailing_take_profit": {
       "enabled": true,
-      "callback_pct": 0.008
+      "callback_pct": 0.005
     },
     "anti_fakeout": {
       "enabled": true,
@@ -65,12 +64,12 @@
     },
     "stale_exit": {
       "enabled": true,
-      "hours": 12.0,
-      "max_pnl_threshold_pct": 1.0
+      "hours": 1.5,
+      "max_pnl_threshold_pct": 0.8
     },
     "spread_guard": {
       "enabled": true,
-      "max_spread_pct": 0.0020
+      "max_spread_pct": 0.0015
     },
     "correlation_guard": {
       "enabled": false,
@@ -78,7 +77,7 @@
     },
     "pullback_retrace": {
       "enabled": true,
-      "retrace_pct": 0.008
+      "retrace_pct": 0.005
     },
     "high_proximity_filter": {
       "enabled": true,
@@ -87,9 +86,9 @@
     },
     "volatility_sizing": {
       "enabled": false,
-      "target_risk_usdt": 1.20,
-      "min_order_usdt": 35.0,
-      "max_order_usdt": 45.0
+      "target_risk_usdt": 1.50,
+      "min_order_usdt": 50.0,
+      "max_order_usdt": 95.0
     },
     "early_momentum_invalidation": {
       "enabled": true,
@@ -106,8 +105,8 @@
   "risk_management": {
     "capital_usdt": 100.0,
     "min_notional_usdt": 5.0,
-    "max_open_trades": 2,
-    "min_cash_reserve_pct": 0.10,
+    "max_open_trades": 1,
+    "min_cash_reserve_pct": 0.05,
     "daily_max_drawdown_pct": 8.0,
     "circuit_breaker_hours": 24,
     "fee_rate": 0.00075,
