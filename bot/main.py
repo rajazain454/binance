@@ -160,23 +160,24 @@ def execute_cycle(client, config, model_bundle=None):
             ]
             send_discord_alert(webhook, title, fields, color=5763719)
 
-        # Hourly Radar Alert
-        hourly_radar_enabled = discord_cfg.get("hourly_radar_alert", False)
-        if hourly_radar_enabled and not new_signals and not closed_signals:
+        # 15-Minute Cycle Radar Status Alert (Dispatches every 15m scan)
+        radar_alert_enabled = discord_cfg.get("cycle_radar_alert", True) or discord_cfg.get("hourly_radar_alert", True)
+        if radar_alert_enabled and not new_signals and not closed_signals:
             now_utc = datetime.now(timezone.utc)
             last_alert_str = state.get("last_hourly_alert")
-            should_send_hourly = True
+            should_send_alert = True
             if last_alert_str:
                 try:
                     last_alert_dt = datetime.fromisoformat(last_alert_str.replace(" ", "T"))
                     if last_alert_dt.tzinfo is None:
                         last_alert_dt = last_alert_dt.replace(tzinfo=timezone.utc)
-                    if (now_utc - last_alert_dt).total_seconds() < 3000:
-                        should_send_hourly = False
+                    # 600-second cooldown ensures every 15m cycle sends an updated status
+                    if (now_utc - last_alert_dt).total_seconds() < 600:
+                        should_send_alert = False
                 except Exception:
                     pass
 
-            if should_send_hourly:
+            if should_send_alert:
                 state["last_hourly_alert"] = now_utc.strftime("%Y-%m-%d %H:%M:%S")
                 from bot.alerts import send_radar_status_alert
                 send_radar_status_alert(state, config)

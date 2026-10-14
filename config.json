@@ -116,6 +116,7 @@
   "discord": {
     "enabled": true,
     "webhook_url": "",
+    "cycle_radar_alert": true,
     "hourly_radar_alert": true
   },
   "paths": {
