@@ -1,46 +1,25 @@
 {
-  "balance_usdt": 9.567438281570546,
+  "balance_usdt": 95.39418093876523,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {
-    "305e6aee": {
-      "position_id": "305e6aee",
-      "symbol": "DOGE/USDT",
-      "direction": "BUY_SPOT",
-      "entry_time": "2026-10-14T17:01:04.391703+00:00",
-      "entry_price": 0.0827,
-      "curr_price": 0.0827,
-      "stop_loss": 0.08145949999999999,
-      "take_profit": 0.08476749999999998,
-      "tp1_price": 0.084354,
-      "partial_tp_taken": false,
-      "allocated_usdt": 86.69,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.0,
-      "trailing_active": false,
-      "peak_price": 0.0827,
-      "setup_name": "Oversold Bounce (RSI 48)"
-    }
-  },
+  "open_positions": {},
   "loss_cooldowns": {},
-  "trade_count": 2,
+  "trade_count": 3,
   "win_count": 0,
-  "loss_count": 2,
-  "realized_pnl_usdt": -3.7425617184294646,
-  "last_update": "2026-10-14 17:01:04",
+  "loss_count": 3,
+  "realized_pnl_usdt": -4.605819061234773,
+  "last_update": "2026-10-14 18:01:05",
   "last_digest_date": "2026-10-14",
   "last_hourly_alert": "2026-10-14 14:01:08",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "DOGE/USDT",
-    "active_symbols": [
-      "DOGE/USDT"
-    ],
-    "total_grid_profit_usdt": -3.7425617184294646,
-    "cycles_completed": 2,
+    "active_symbol": "SOL/USDT",
+    "active_symbols": [],
+    "total_grid_profit_usdt": -4.605819061234773,
+    "cycles_completed": 3,
     "grid_trades": 3
   }
 }
