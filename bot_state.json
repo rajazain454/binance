@@ -1,26 +1,47 @@
 {
-  "balance_usdt": 99.9164716154261,
+  "balance_usdt": 54.916471615426104,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {},
+  "open_positions": {
+    "58b6bc10": {
+      "position_id": "58b6bc10",
+      "symbol": "WIF/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-14T08:00:49.871590+00:00",
+      "entry_price": 0.2057,
+      "curr_price": 0.2057,
+      "stop_loss": 0.2026145,
+      "take_profit": 0.21495649999999997,
+      "tp1_price": 0.2108425,
+      "partial_tp_taken": false,
+      "allocated_usdt": 45.0,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 0.2057,
+      "setup_name": "Oversold Bounce (RSI 36)"
+    }
+  },
   "loss_cooldowns": {},
   "trade_count": 2,
   "win_count": 1,
   "loss_count": 1,
   "realized_pnl_usdt": -0.08352838457388766,
-  "last_update": "2026-10-14 07:49:35",
+  "last_update": "2026-10-14 08:00:50",
   "last_digest_date": "2026-10-14",
   "last_hourly_alert": "2026-10-14 07:49:35",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "PEPE/USDT",
-    "active_symbols": [],
+    "active_symbol": "WIF/USDT",
+    "active_symbols": [
+      "WIF/USDT"
+    ],
     "total_grid_profit_usdt": -0.08352838457388766,
     "cycles_completed": 2,
-    "grid_trades": 2
+    "grid_trades": 3
   },
   "trades_won": 1
 }
