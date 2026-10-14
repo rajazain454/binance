@@ -246,8 +246,9 @@ def main():
     execute_cycle(client, config)
 
     if args.loop:
-        tf_sec = 3600 if config["timeframe"] == "1h" else 1800
-        logger.info("[Loop Active] Monitoring Binance Halal Grid on %s intervals...", config["timeframe"])
+        tf = config.get("timeframe", "15m")
+        tf_sec = 300 if tf == "5m" else (3600 if tf == "1h" else 900)
+        logger.info("[Loop Active] High-Velocity Compounding Scalper active on %s timeframe...", tf)
         last_digest_date = datetime.now(timezone.utc).date()
         while True:
             now_dt = datetime.now(timezone.utc)
@@ -258,9 +259,18 @@ def main():
                     last_digest_date = now_dt.date()
                 except Exception as e:
                     logger.warning("Daily digest dispatch failed: %s", e)
-            now = time.time()
-            sleep_time = tf_sec - (now % tf_sec) + 10
-            time.sleep(sleep_time)
+
+            # If open positions exist, check every 20s for real-time TP/SL and breakeven execution
+            st = load_state(config["paths"]["state_file"])
+            has_open_pos = bool(st.get("open_positions"))
+
+            if has_open_pos:
+                time.sleep(20)
+            else:
+                now = time.time()
+                sleep_time = tf_sec - (now % tf_sec) + 5
+                time.sleep(min(sleep_time, 900))
+
             try:
                 execute_cycle(client, config)
             except Exception as e:

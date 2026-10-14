@@ -11,16 +11,16 @@
       "direction": "BUY_SPOT",
       "entry_time": "2026-10-14T10:21:54.463341+00:00",
       "entry_price": 1.0449,
-      "curr_price": 1.0504,
-      "stop_loss": 1.0292264999999998,
+      "curr_price": 1.0538,
+      "stop_loss": 1.0469898,
       "take_profit": 1.0710224999999998,
       "tp1_price": 1.065798,
       "partial_tp_taken": false,
       "allocated_usdt": 90.25,
-      "unrealized_pnl": 0.47504545889559735,
-      "unrealized_pnl_pct": 0.5263661594411051,
+      "unrealized_pnl": 0.7687099243946808,
+      "unrealized_pnl_pct": 0.8517561489137737,
       "trailing_active": false,
-      "peak_price": 1.0449,
+      "peak_price": 1.0538,
       "setup_name": "Oversold Bounce (RSI 47)"
     }
   },
@@ -29,13 +29,13 @@
   "win_count": 0,
   "loss_count": 0,
   "realized_pnl_usdt": 0.0,
-  "last_update": "2026-10-14 11:01:07",
+  "last_update": "2026-10-14 11:37:55",
   "last_digest_date": "2026-10-14",
-  "last_hourly_alert": "2026-10-14 11:01:07",
+  "last_hourly_alert": "2026-10-14 11:30:12",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "PEPE/USDT",
+    "active_symbol": "SOL/USDT",
     "active_symbols": [
       "SUI/USDT"
     ],
