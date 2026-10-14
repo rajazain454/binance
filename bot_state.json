@@ -1,25 +1,46 @@
 {
-  "balance_usdt": 100.0,
+  "balance_usdt": 9.75,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {},
+  "open_positions": {
+    "0394f311": {
+      "position_id": "0394f311",
+      "symbol": "SUI/USDT",
+      "direction": "BUY_SPOT",
+      "entry_time": "2026-10-14T10:21:54.463341+00:00",
+      "entry_price": 1.0449,
+      "curr_price": 1.0449,
+      "stop_loss": 1.0292264999999998,
+      "take_profit": 1.0710224999999998,
+      "tp1_price": 1.065798,
+      "partial_tp_taken": false,
+      "allocated_usdt": 90.25,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 1.0449,
+      "setup_name": "Oversold Bounce (RSI 47)"
+    }
+  },
   "loss_cooldowns": {},
   "trade_count": 0,
   "win_count": 0,
   "loss_count": 0,
   "realized_pnl_usdt": 0.0,
-  "last_update": "2026-10-14 10:12:52",
+  "last_update": "2026-10-14 10:21:54",
   "last_digest_date": "2026-10-14",
   "last_hourly_alert": "2026-10-14 10:12:52",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "SOL/USDT",
-    "active_symbols": [],
+    "active_symbol": "SUI/USDT",
+    "active_symbols": [
+      "SUI/USDT"
+    ],
     "total_grid_profit_usdt": 0.0,
     "cycles_completed": 0,
-    "grid_trades": 0
+    "grid_trades": 1
   }
 }
