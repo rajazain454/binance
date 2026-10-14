@@ -34,7 +34,7 @@
     "order_size_usdt": 85.0,
     "compounding": {
       "enabled": true,
-      "allocation_pct": 0.90,
+      "allocation_pct": 0.95,
       "reinvest_profit": true
     },
     "max_grid_levels": 1,
@@ -44,7 +44,7 @@
     "min_cash_reserve_usdt": 5.0,
     "target_tp_pct": 0.025,
     "stop_loss_pct": 0.015,
-    "breakeven_trigger_pct": 0.010,
+    "breakeven_trigger_pct": 0.008,
     "vol_spike_multiplier": 1.5,
     "mtf_guard_enabled": true,
     "atr_tp_multiplier": 1.8,
