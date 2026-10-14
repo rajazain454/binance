@@ -1,25 +1,26 @@
 {
-  "balance_usdt": 95.39418093876523,
+  "balance_usdt": 97.29030657839051,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
   "open_positions": {},
   "loss_cooldowns": {},
-  "trade_count": 3,
-  "win_count": 0,
+  "trade_count": 7,
+  "win_count": 4,
   "loss_count": 3,
-  "realized_pnl_usdt": -4.605819061234773,
-  "last_update": "2026-10-14 19:00:55",
+  "realized_pnl_usdt": -2.7096934216094946,
+  "last_update": "2026-10-14 19:46:25",
   "last_digest_date": "2026-10-14",
-  "last_hourly_alert": "2026-10-14 19:00:55",
+  "last_hourly_alert": "2026-10-14 19:45:06",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
     "active_symbol": "SOL/USDT",
     "active_symbols": [],
-    "total_grid_profit_usdt": -4.605819061234773,
-    "cycles_completed": 3,
-    "grid_trades": 3
-  }
+    "total_grid_profit_usdt": -2.7096934216094946,
+    "cycles_completed": 7,
+    "grid_trades": 7
+  },
+  "trades_won": 5
 }

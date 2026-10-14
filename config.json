@@ -14,7 +14,7 @@
     "NEAR/USDT",
     "SUI/USDT"
   ],
-  "timeframe": "15m",
+  "timeframe": "5m",
   "grid_trading": {
     "enabled": true,
     "strategy_name": "Binance High-Velocity Compounding Scalper",
@@ -40,23 +40,24 @@
     "max_grid_levels": 1,
     "max_active_coins": 1,
     "max_levels_per_coin": 1,
-    "min_step_pct": 0.012,
+    "min_step_pct": 0.008,
     "min_cash_reserve_usdt": 5.0,
-    "target_tp_pct": 0.025,
-    "stop_loss_pct": 0.015,
-    "breakeven_trigger_pct": 0.008,
-    "vol_spike_multiplier": 1.5,
+    "target_tp_pct": 0.0090,
+    "stop_loss_pct": 0.0045,
+    "breakeven_trigger_pct": 0.0035,
+    "vol_spike_multiplier": 1.4,
     "mtf_guard_enabled": true,
-    "atr_tp_multiplier": 1.8,
-    "atr_sl_multiplier": 1.2,
+    "atr_tp_multiplier": 1.5,
+    "atr_sl_multiplier": 1.0,
     "partial_take_profit": {
-      "enabled": false,
-      "tp1_pct": 0.020,
+      "enabled": true,
+      "tp1_pct": 0.0050,
       "ratio": 0.5
     },
     "trailing_take_profit": {
       "enabled": true,
-      "callback_pct": 0.005
+      "activation_pct": 0.0060,
+      "callback_pct": 0.0020
     },
     "anti_fakeout": {
       "enabled": true,
@@ -64,8 +65,8 @@
     },
     "stale_exit": {
       "enabled": true,
-      "hours": 1.5,
-      "max_pnl_threshold_pct": 0.8
+      "hours": 0.35,
+      "max_pnl_threshold_pct": 0.4
     },
     "spread_guard": {
       "enabled": true,

@@ -8,6 +8,17 @@ import os
 import sys
 import time
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from dotenv import load_dotenv
 
 from binance_client import BinanceClient
@@ -24,6 +35,12 @@ logger = logging.getLogger("quantlab")
 
 def execute_cycle(client, config, model_bundle=None):
     """Executes a single market scan, grid cycle, and alert dispatch."""
+    try:
+        fresh_cfg = load_config()
+        config.clear()
+        config.update(fresh_cfg)
+    except Exception:
+        pass
     state_path = config["paths"]["state_file"]
     state = load_state(state_path, initial_capital=config["risk_management"]["capital_usdt"])
 
@@ -265,11 +282,10 @@ def main():
             has_open_pos = bool(st.get("open_positions"))
 
             if has_open_pos:
-                time.sleep(20)
+                time.sleep(15)
             else:
-                now = time.time()
-                sleep_time = tf_sec - (now % tf_sec) + 5
-                time.sleep(min(sleep_time, 900))
+                # Fast scalper polling: check market every 30s so breakout impulses are caught live
+                time.sleep(30)
 
             try:
                 execute_cycle(client, config)
