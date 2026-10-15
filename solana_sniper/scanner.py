@@ -77,6 +77,8 @@ def scan_solana_momentum_tokens(trading_cfg: Dict[str, Any]) -> List[Dict[str, A
 
                 price_change_m5 = float((p.get("priceChange", {}) or {}).get("m5", 0.0) or 0.0)
 
+                fdv_usd = float(p.get("fdv", 0.0) or p.get("marketCap", 0.0) or 0.0)
+
                 # Check Filters
                 if liq_usd < trading_cfg.get("min_liquidity_usd", 15000.0):
                     continue
@@ -91,7 +93,11 @@ def scan_solana_momentum_tokens(trading_cfg: Dict[str, Any]) -> List[Dict[str, A
                 if ratio < trading_cfg.get("min_buy_sell_ratio", 1.3):
                     continue
 
-                if age_hours > trading_cfg.get("max_token_age_hours", 4.0):
+                if age_hours > trading_cfg.get("max_token_age_hours", 2.0):
+                    continue
+
+                max_fdv = float(trading_cfg.get("max_fdv_usd", 0.0))
+                if max_fdv > 0 and fdv_usd > max_fdv:
                     continue
 
                 is_pump_fun = mint.endswith("pump") or "pump" in p.get("dexId", "").lower()
