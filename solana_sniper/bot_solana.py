@@ -86,9 +86,15 @@ def run_sniper_cycle(config: Dict[str, Any], state: Dict[str, Any]) -> Tuple[Lis
     candidates = scan_solana_momentum_tokens(config.get("trading", {}))
 
     if len(open_pos) < max_pos:
+        cooldown_mints = state.get("cooldown_mints", {})
+        now_ts = time.time()
         for cand in candidates:
             mint = cand["mint"]
             if mint in open_pos:
+                continue
+
+            # Prevent re-entering recently stopped-out tokens (60m cooldown)
+            if mint in cooldown_mints and (now_ts - cooldown_mints[mint]) < 3600:
                 continue
 
             # 3. RugCheck Security Verification

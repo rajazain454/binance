@@ -75,14 +75,20 @@ def scan_solana_momentum_tokens(trading_cfg: Dict[str, Any]) -> List[Dict[str, A
                 created_at_ms = p.get("pairCreatedAt", 0)
                 age_hours = (time.time() * 1000 - created_at_ms) / (1000 * 3600) if created_at_ms else 0.0
 
+                price_change_m5 = float((p.get("priceChange", {}) or {}).get("m5", 0.0) or 0.0)
+
                 # Check Filters
                 if liq_usd < trading_cfg.get("min_liquidity_usd", 15000.0):
                     continue
                 if vol_m5 < trading_cfg.get("min_5m_volume_usd", 10000.0):
                     continue
                 
+                min_price_change = float(trading_cfg.get("min_5m_price_change_pct", 1.5))
+                if price_change_m5 < min_price_change:
+                    continue
+
                 ratio = buys_m5 / max(1, sells_m5)
-                if ratio < trading_cfg.get("min_buy_sell_ratio", 1.25):
+                if ratio < trading_cfg.get("min_buy_sell_ratio", 1.3):
                     continue
 
                 if age_hours > trading_cfg.get("max_token_age_hours", 4.0):
@@ -105,6 +111,7 @@ def scan_solana_momentum_tokens(trading_cfg: Dict[str, Any]) -> List[Dict[str, A
                     "buy_sell_ratio": ratio,
                     "age_hours": age_hours,
                     "is_pump_fun": is_pump_fun,
+                    "price_change_5m": price_change_m5,
                     "url": p.get("url", f"https://dexscreener.com/solana/{pair_addr}"),
                 })
 

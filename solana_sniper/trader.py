@@ -204,6 +204,12 @@ def manage_active_positions(
                 outcome = "WIN"
                 reason = f"🚀 Moonbag Trailing Harvest (Peak: ${peak_p:.6f}, Drop: -{trailing_cb*100:.1f}%)"
 
+        # 2.5 BREAKEVEN PROTECTION (If token peaked >= +20% but pulled back, protect capital)
+        elif peak_p >= (entry_p * 1.20) and multiplier <= 1.02:
+            should_exit = True
+            outcome = "WIN" if multiplier >= 1.0 else "LOSS"
+            reason = f"🛡️ Breakeven Guard (Peaked at +{(peak_p/entry_p - 1.0)*100:.1f}%, secured at entry)"
+
         # 3. HARD STOP LOSS (Only applies before TP1 moonbag is taken)
         elif multiplier <= (1.0 - stop_loss_pct):
             should_exit = True
@@ -221,6 +227,7 @@ def manage_active_positions(
 
         if should_exit:
             positions_to_remove.append(mint)
+            state.setdefault("cooldown_mints", {})[mint] = time.time()
             rem_sol = pos["allocated_sol"] * multiplier
             net_pnl = rem_sol - pos["allocated_sol"]
             state["balance_sol"] += rem_sol
