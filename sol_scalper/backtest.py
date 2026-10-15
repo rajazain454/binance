@@ -16,24 +16,44 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("backtester")
 
 
-def fetch_historical_candles(symbol: str, interval: str = "5m", total_candles: int = 1000) -> List[Dict[str, float]]:
-    """Fetches up to 1000 historical institutional candles from Binance public API."""
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={min(total_candles, 1000)}"
-    r = requests.get(url, headers={"User-Agent": "QuantBacktest/1.0"}, timeout=10)
-    if r.status_code != 200:
-        return []
-    
-    candles = []
-    for k in r.json():
-        candles.append({
-            "timestamp": int(k[0]),
-            "open": float(k[1]),
-            "high": float(k[2]),
-            "low": float(k[3]),
-            "close": float(k[4]),
-            "volume": float(k[5]),
-        })
-    return candles
+def fetch_historical_candles(symbol: str, interval: str = "5m", total_candles: int = 5000) -> List[Dict[str, float]]:
+    """Fetches paginated historical institutional candles from Binance public API."""
+    import time
+    all_candles = []
+    end_time = None
+    target = max(100, total_candles)
+
+    while len(all_candles) < target:
+        batch_size = min(1000, target - len(all_candles))
+        url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={batch_size}"
+        if end_time:
+            url += f"&endTime={end_time}"
+        try:
+            r = requests.get(url, headers={"User-Agent": "QuantBacktest/2.0"}, timeout=10)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            if not data or not isinstance(data, list) or len(data) == 0:
+                break
+            batch = []
+            for k in data:
+                batch.append({
+                    "timestamp": int(k[0]),
+                    "open": float(k[1]),
+                    "high": float(k[2]),
+                    "low": float(k[3]),
+                    "close": float(k[4]),
+                    "volume": float(k[5]),
+                })
+            end_time = batch[0]["timestamp"] - 1
+            all_candles = batch + all_candles
+            if len(data) < batch_size:
+                break
+            time.sleep(0.08)
+        except Exception:
+            break
+
+    return all_candles[-target:]
 
 
 def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
@@ -177,7 +197,7 @@ def run_backtest_on_symbol(
                 reversal_bar = (closes[i] > closes[i - 1]) and (closes[i] > ema9[i])
                 is_uptrend = (ema9[i] > ema21[i]) and (ema21[i] > ema50[i]) and (price > ema50[i])
 
-                if is_uptrend and dip_bar and reversal_bar:
+                if is_uptrend and dip_bar and reversal_bar and (rsi[i] <= 58.0):
                     pos_size = cash * bet_pct
                     cash -= pos_size
                     position = {
@@ -222,13 +242,15 @@ def run_backtest_on_symbol(
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Asset Quantitative Scalper Backtester")
-    parser.add_argument("--tp", type=float, default=1.0, help="Take-profit percentage (e.g. 1.0)")
-    parser.add_argument("--sl", type=float, default=0.5, help="Stop-loss percentage (e.g. 0.5)")
+    parser.add_argument("--tp", type=float, default=1.20, help="Take-profit percentage (e.g. 1.20)")
+    parser.add_argument("--sl", type=float, default=0.60, help="Stop-loss percentage (e.g. 0.60)")
+    parser.add_argument("--candles", type=int, default=5000, help="Number of 5m candles to fetch (e.g. 5000 = ~17 days)")
     args = parser.parse_args()
 
-    symbols = ["SOLUSDT", "JUPUSDT", "RAYUSDT", "WIFUSDT"]
+    symbols = ["JUPUSDT", "PYTHUSDT", "SOLUSDT", "RENDERUSDT"]
+    days_span = (args.candles * 5) / (60 * 24)
     print("=" * 80)
-    print("  🔬 QUANTITATIVE MULTI-ASSET HISTORICAL BACKTEST ENGINE (1,000 CANDLES)")
+    print(f"  🔬 QUANTITATIVE MULTI-ASSET HISTORICAL BACKTEST ENGINE ({args.candles:,} CANDLES / ~{days_span:.1f} DAYS)")
     print(f"  Targets: Take Profit: +{args.tp:.2f}% | Stop Loss: -{args.sl:.2f}% (2:1 Ratio)")
     print("=" * 80)
     print(f"  {'Symbol':<10} {'Trades':>8} {'Wins':>6} {'Losses':>8} {'Win Rate':>10} {'Profit Factor':>15} {'Net PnL':>12}")
@@ -239,7 +261,7 @@ def main():
     total_wins = 0
 
     for s in symbols:
-        candles = fetch_historical_candles(s, interval="5m", total_candles=1000)
+        candles = fetch_historical_candles(s, interval="5m", total_candles=args.candles)
         res = run_backtest_on_symbol(s, candles, tp_pct=args.tp, sl_pct=args.sl, starting_usd=50.0, bet_pct=0.40)
         total_net_pnl += res["total_pnl"]
         total_trades += res["trades"]

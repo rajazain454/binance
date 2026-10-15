@@ -41,8 +41,12 @@ def print_scalper_dashboard(
     wr = (wins / trades * 100.0) if trades > 0 else 0.0
     pnl = state.get("realized_pnl_usd", 0.0)
 
+    strat_cfg = config.get("strategy", {})
+    tf = strat_cfg.get("timeframe", "15m").upper()
+    tokens_str = " + ".join([s.replace("USDC", "") for s in snapshots.keys()]) or "MULTI-ASSET"
+
     print("=" * W)
-    print(f"  ⚡ QUANTITATIVE MULTI-ASSET SCALPER (JUP + SOL)  |  MODE: {mode}  |  STATUS: ACTIVE")
+    print(f"  ⚡ QUANTITATIVE HALAL SCALPER ({tokens_str})  |  TIMEFRAME: {tf}  |  MODE: {mode}")
     print("=" * W)
     print(
         f"  Total Equity: ${equity:,.2f}  |  Liquid Cash: ${cash:,.2f}  |  In Positions: ${pos_val:,.2f}\n"
@@ -51,7 +55,7 @@ def print_scalper_dashboard(
     print("-" * W)
 
     # 1. Multi-Asset Market Radar
-    print("  5-MINUTE MARKET RADAR & INSTITUTIONAL INDICATORS")
+    print(f"  {tf} INSTITUTIONAL INDICATOR RADAR & PULLBACK TRACKER")
     print("-" * W)
     print(f"  {'Asset':<10} {'Price':>12} {'RSI (14)':>10} {'EMA 9':>12} {'EMA 21':>12} {'EMA 50':>12} {'Trend':<14}")
     print("  " + "-" * (W - 4))
@@ -67,7 +71,7 @@ def print_scalper_dashboard(
     print("  ACTIVE POSITIONS")
     print("-" * W)
     if not open_pos:
-        print("  🛡️ 100% Cash in USDC. Scanning JUP + SOL for 2-bar pullback bounce...")
+        print(f"  🛡️ 100% Cash in USDC. Scanning {tokens_str} for 15m pullback bounce...")
     else:
         for sym, p in open_pos.items():
             curr_p = snapshots.get(sym, {}).get("price", p["entry_price_usd"])
@@ -75,10 +79,12 @@ def print_scalper_dashboard(
             cur_val = p["allocated_usd"] * (curr_p / p["entry_price_usd"])
             net_d = cur_val - p["allocated_usd"]
             color = "🟢" if gain_pct >= 0 else "🔴"
+            tp_pct = config.get("trading", {}).get("take_profit_pct", 5.0)
+            sl_pct = config.get("trading", {}).get("stop_loss_pct", 2.0)
             print(
-                f"  {color} [{sym}] Size: ${p['allocated_usd']:.2f} ({p['units']:.2f} units) | "
+                f"  {color} [{sym}] Size: ${p['allocated_usd']:.2f} ({p.get('units', 0.0):.2f} units) | "
                 f"Entry: ${p['entry_price_usd']:.4f} | Now: ${curr_p:.4f} | Gain: {gain_pct:+.2f}% ({net_d:+.2f} USD)\n"
-                f"     🎯 Target TP (+1.2%): ${p['target_tp_price']:.4f} | 🛡️ Stop Loss (-0.6%): ${p['target_sl_price']:.4f}"
+                f"     🎯 Target TP (+{tp_pct:.1f}%): ${p['target_tp_price']:.4f} | 🛡️ Stop Loss (-{sl_pct:.1f}%): ${p['target_sl_price']:.4f}"
             )
     print("-" * W)
 

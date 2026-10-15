@@ -33,6 +33,11 @@ def evaluate_basket_entry(snapshot: Dict[str, Any], strategy_cfg: Dict[str, Any]
     if not touched_support:
         return False, f"In bull trend but awaiting pullback to 21 EMA / RSI dip (RSI: {snapshot['rsi']:.1f})"
 
+    # Upper RSI safety check: Do not buy if current RSI is already overbought (> 58.0)
+    max_entry_rsi = float(strategy_cfg.get("rsi_max_entry", 58.0))
+    if snapshot["rsi"] > max_entry_rsi:
+        return False, f"Pullback bounce already overextended (RSI: {snapshot['rsi']:.1f} > {max_entry_rsi:.1f})"
+
     # 3. Reversal Bar Check
     reversal_candle = (price > prev_price) and (price >= ema_fast * 0.999)
     if not reversal_candle:

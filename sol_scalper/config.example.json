@@ -2,9 +2,15 @@
   "mode": "paper",
   "basket": [
     {
-      "symbol": "JUPUSDC",
-      "ticker": "JUPUSDT",
-      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "symbol": "PYTHUSDC",
+      "ticker": "PYTHUSDT",
+      "mint": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+      "decimals": 6
+    },
+    {
+      "symbol": "RAYUSDC",
+      "ticker": "RAYUSDT",
+      "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
       "decimals": 6
     },
     {
@@ -15,32 +21,33 @@
     }
   ],
   "solana": {
-    "rpc_url": "https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY",
-    "private_key": "",
-    "public_key": "",
+    "rpc_url": "https://mainnet.helius-rpc.com/?api-key=YOUR_KEY",
+    "private_key": "YOUR_BASE58_KEY",
+    "public_key": "YOUR_PUBLIC_KEY",
     "usdc_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
   },
   "trading": {
     "starting_capital_usd": 50.0,
-    "position_size_usd": 20.0,
+    "position_size_usd": 25.0,
     "dynamic_compounding": true,
-    "position_size_pct": 40.0,
+    "position_size_pct": 50.0,
     "max_concurrent_positions": 2,
-    "take_profit_pct": 1.20,
-    "stop_loss_pct": 0.60,
+    "take_profit_pct": 5.00,
+    "stop_loss_pct": 2.00,
     "trailing_stop_enabled": true,
-    "trailing_activation_pct": 0.50,
-    "trailing_callback_pct": 0.25,
-    "max_hold_bars": 12,
-    "cooldown_seconds": 60
+    "trailing_activation_pct": 2.50,
+    "trailing_callback_pct": 1.00,
+    "max_hold_bars": 24,
+    "cooldown_seconds": 120
   },
   "strategy": {
-    "timeframe": "5m",
+    "timeframe": "15m",
     "ema_fast": 9,
     "ema_slow": 21,
     "ema_trend": 50,
     "rsi_period": 14,
     "rsi_dip_threshold": 48.0,
+    "rsi_max_entry": 58.0,
     "require_macro_trend": true
   },
   "discord": {
