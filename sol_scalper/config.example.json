@@ -1,0 +1,41 @@
+{
+  "mode": "paper",
+  "symbol": "SOLUSDC",
+  "solana": {
+    "rpc_url": "https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY",
+    "private_key": "",
+    "public_key": "",
+    "usdc_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "wsol_mint": "So11111111111111111111111111111111111111112"
+  },
+  "trading": {
+    "starting_capital_usd": 50.0,
+    "position_size_usd": 25.0,
+    "dynamic_compounding": true,
+    "position_size_pct": 50.0,
+    "take_profit_pct": 1.8,
+    "stop_loss_pct": 0.9,
+    "trailing_stop_enabled": true,
+    "trailing_activation_pct": 1.2,
+    "trailing_callback_pct": 0.4,
+    "cooldown_seconds": 60
+  },
+  "strategy": {
+    "timeframe": "1m",
+    "ema_fast": 9,
+    "ema_slow": 21,
+    "ema_trend": 50,
+    "rsi_period": 14,
+    "rsi_oversold_threshold": 42.0,
+    "rsi_overbought_threshold": 70.0,
+    "require_trend_alignment": true
+  },
+  "discord": {
+    "enabled": true,
+    "webhook_url": ""
+  },
+  "paths": {
+    "state_file": "sol_scalper/state.json",
+    "trade_ledger": "sol_scalper/trade_history.csv"
+  }
+}

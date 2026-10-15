@@ -35,3 +35,9 @@ solana_sniper/config.json
 solana_sniper/state.json
 solana_sniper/*.csv
 
+# Solana Scalper Private Keys and State
+sol_scalper/config.json
+sol_scalper/state.json
+sol_scalper/*.csv
+
+
