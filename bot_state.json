@@ -1,47 +1,26 @@
 {
-  "balance_usdt": 9.577391517145145,
+  "balance_usdt": 96.57913602481777,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
-  "open_positions": {
-    "88d503d9": {
-      "position_id": "88d503d9",
-      "symbol": "PEPE/USDT",
-      "direction": "BUY_SPOT",
-      "entry_time": "2026-10-15T11:01:00.821364+00:00",
-      "entry_price": 3.91e-06,
-      "curr_price": 3.91e-06,
-      "stop_loss": 3.892405e-06,
-      "take_profit": 3.94642857142857e-06,
-      "tp1_price": 3.930035714285714e-06,
-      "partial_tp_taken": false,
-      "allocated_usdt": 86.91,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.0,
-      "trailing_active": false,
-      "peak_price": 3.91e-06,
-      "setup_name": "Volume Surge (1.7x Vol)"
-    }
-  },
+  "open_positions": {},
   "loss_cooldowns": {},
-  "trade_count": 10,
-  "win_count": 4,
+  "trade_count": 11,
+  "win_count": 5,
   "loss_count": 6,
-  "realized_pnl_usdt": -3.5126084828548514,
-  "last_update": "2026-10-15 11:01:01",
+  "realized_pnl_usdt": -3.4208639751822227,
+  "last_update": "2026-10-15 12:01:07",
   "last_digest_date": "2026-10-15",
   "last_hourly_alert": "2026-10-15 09:00:59",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "PEPE/USDT",
-    "active_symbols": [
-      "PEPE/USDT"
-    ],
-    "total_grid_profit_usdt": -3.5126084828548514,
-    "cycles_completed": 10,
+    "active_symbol": "SOL/USDT",
+    "active_symbols": [],
+    "total_grid_profit_usdt": -3.4208639751822227,
+    "cycles_completed": 11,
     "grid_trades": 11
   },
-  "trades_won": 6
+  "trades_won": 7
 }
