@@ -1,0 +1,8 @@
+services:
+  solana-sniper:
+    build: .
+    container_name: solana-sniper
+    restart: always
+    volumes:
+      - ./solana_sniper:/app/solana_sniper
+      - ./logs:/app/logs
