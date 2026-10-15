@@ -33,11 +33,14 @@ def load_sniper_state(state_path: str, initial_capital_sol: float = 1.0) -> Dict
 
 
 def save_sniper_state(state: Dict[str, Any], state_path: str):
-    tmp_path = f"{state_path}.tmp"
     os.makedirs(os.path.dirname(os.path.abspath(state_path)), exist_ok=True)
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-    os.replace(tmp_path, state_path)
+    for _ in range(5):
+        try:
+            with open(state_path, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            return
+        except Exception:
+            time.sleep(0.05)
 
 
 def log_sniper_trade(trade: Dict[str, Any], ledger_path: str):
@@ -246,8 +249,15 @@ def manage_active_positions(
                 outcome = "WIN"
                 reason = f"🚀 Moonbag Trailing Harvest (Peak: ${peak_p:.6f}, Drop: -{trailing_cb*100:.1f}%)"
 
-        # 2.5 BREAKEVEN PROTECTION (If token peaked >= +20% but pulled back, protect capital)
-        elif peak_p >= (entry_p * 1.20) and multiplier <= 1.02:
+        # 2.2 PRE-TP1 PROFIT LOCK (If token surged >= +30%, lock in trailing harvest from peak so gains never evaporate)
+        elif peak_p >= (entry_p * 1.30) and curr_p <= (peak_p * (1.0 - trailing_cb)):
+            should_exit = True
+            outcome = "WIN" if multiplier > 1.0 else "LOSS"
+            pct_gain = (curr_p / entry_p - 1.0) * 100.0
+            reason = f"💰 Profit Lock Trailing (Peaked at +{(peak_p/entry_p - 1.0)*100:.1f}%, secured at +{pct_gain:.1f}%)"
+
+        # 2.5 BREAKEVEN PROTECTION (If token peaked >= +15% but pulled back, protect capital at entry)
+        elif peak_p >= (entry_p * 1.15) and multiplier <= 1.01:
             should_exit = True
             outcome = "WIN" if multiplier >= 1.0 else "LOSS"
             reason = f"🛡️ Breakeven Guard (Peaked at +{(peak_p/entry_p - 1.0)*100:.1f}%, secured at entry)"

@@ -29,12 +29,12 @@
     "max_rugcheck_score": 1000
   },
   "exit_rules": {
-    "tp1_multiplier": 2.0,
+    "tp1_multiplier": 1.50,
     "tp1_harvest_ratio": 0.5,
-    "tp2_multiplier": 5.0,
-    "trailing_stop_callback_pct": 0.15,
-    "stop_loss_pct": 0.25,
-    "stale_timeout_minutes": 20
+    "tp2_multiplier": 4.0,
+    "trailing_stop_callback_pct": 0.12,
+    "stop_loss_pct": 0.16,
+    "stale_timeout_minutes": 12
   },
   "discord": {
     "enabled": true,
