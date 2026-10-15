@@ -84,4 +84,13 @@ def evaluate_active_position(
     if curr_p < snapshot["ema_trend"] and snapshot["rsi"] < 34.0:
         return True, "LOSS", f"⚠️ Macro Trend Invalidation (Dropped below 50 EMA at ${snapshot['ema_trend']:.2f})"
 
+    # 5. Stale Micro-Scalp Timeout (8 minutes: cut dead sideways trades)
+    import time
+    max_hold_sec = float(trading_cfg.get("max_hold_seconds", 480))
+    entry_ts = pos.get("entry_time_ts", time.time())
+    hold_duration_sec = time.time() - entry_ts
+    if hold_duration_sec >= max_hold_sec:
+        outcome = "WIN" if gain_pct > 0 else "LOSS"
+        return True, outcome, f"⏳ Micro-Scalp Timeout ({hold_duration_sec/60:.1f}m reached | {gain_pct:+.2f}%)"
+
     return False, "HOLD", "Active trade tracking target"
