@@ -1,7 +1,19 @@
 """Real-time Interactive CLI Terminal Dashboard for Solana Meme Sniper."""
 
 import os
+import sys
 from typing import List, Dict, Any
+
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 
 def fmt_p(p: float) -> str:
@@ -95,3 +107,29 @@ def print_sniper_dashboard(
             print(f"  [{ev.get('action')}] {ev.get('symbol')} | Mult: {ev.get('multiplier', 1.0):.2f}x | PnL: {ev.get('pnl_sol', 0.0):+.3f} SOL | {ev.get('reason')}")
 
     print("=" * W + "\n")
+
+
+if __name__ == "__main__":
+    import json
+    from solana_sniper.scanner import scan_solana_momentum_tokens
+    
+    cfg_file = "solana_sniper/config.json"
+    state_file = "solana_sniper/state.json"
+    
+    cfg = {}
+    if os.path.exists(cfg_file):
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            
+    st = {}
+    if os.path.exists(state_file):
+        with open(state_file, "r", encoding="utf-8") as f:
+            st = json.load(f)
+            
+    try:
+        candidates = scan_solana_momentum_tokens(cfg)
+    except Exception:
+        candidates = []
+        
+    print_sniper_dashboard(candidates, st, cfg)
+
