@@ -1,47 +1,47 @@
 {
-  "balance_usdt": 53.2567154796768,
+  "balance_usdt": 9.577391517145145,
   "peak_balance": 100.0,
   "daily_peak_balance": 100.0,
   "daily_reset_time": "2026-10-14T00:00:00.000000+00:00",
   "circuit_breaker_until": null,
   "open_positions": {
-    "f32e8143": {
-      "position_id": "f32e8143",
-      "symbol": "SUI/USDT",
+    "88d503d9": {
+      "position_id": "88d503d9",
+      "symbol": "PEPE/USDT",
       "direction": "BUY_SPOT",
-      "entry_time": "2026-10-15T09:50:36.786171+00:00",
-      "entry_price": 0.9875,
-      "curr_price": 0.9954,
-      "stop_loss": 0.9904625,
-      "take_profit": 0.9963875,
-      "tp1_price": 0.9924375,
-      "partial_tp_taken": true,
-      "allocated_usdt": 43.41,
-      "unrealized_pnl": 0.34728000000000026,
-      "unrealized_pnl_pct": 0.8000000000000007,
-      "trailing_active": true,
-      "peak_price": 0.9954,
-      "setup_name": "Oversold Bounce (RSI 26)"
+      "entry_time": "2026-10-15T11:01:00.821364+00:00",
+      "entry_price": 3.91e-06,
+      "curr_price": 3.91e-06,
+      "stop_loss": 3.892405e-06,
+      "take_profit": 3.94642857142857e-06,
+      "tp1_price": 3.930035714285714e-06,
+      "partial_tp_taken": false,
+      "allocated_usdt": 86.91,
+      "unrealized_pnl": 0.0,
+      "unrealized_pnl_pct": 0.0,
+      "trailing_active": false,
+      "peak_price": 3.91e-06,
+      "setup_name": "Volume Surge (1.7x Vol)"
     }
   },
   "loss_cooldowns": {},
-  "trade_count": 9,
+  "trade_count": 10,
   "win_count": 4,
-  "loss_count": 5,
-  "realized_pnl_usdt": -3.3332845203232058,
-  "last_update": "2026-10-15 10:01:02",
+  "loss_count": 6,
+  "realized_pnl_usdt": -3.5126084828548514,
+  "last_update": "2026-10-15 11:01:01",
   "last_digest_date": "2026-10-15",
   "last_hourly_alert": "2026-10-15 09:00:59",
   "macro_regime": "MACRO BULL TREND (BTC > 200d SMA)",
   "is_bear_defense": false,
   "grid_state": {
-    "active_symbol": "SUI/USDT",
+    "active_symbol": "PEPE/USDT",
     "active_symbols": [
-      "SUI/USDT"
+      "PEPE/USDT"
     ],
-    "total_grid_profit_usdt": -3.3332845203232058,
-    "cycles_completed": 9,
-    "grid_trades": 10
+    "total_grid_profit_usdt": -3.5126084828548514,
+    "cycles_completed": 10,
+    "grid_trades": 11
   },
   "trades_won": 6
 }
