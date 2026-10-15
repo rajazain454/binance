@@ -145,17 +145,22 @@ def main():
         return
 
     logger.info("⚡ Solana High-Velocity Meme Sniper active in loop mode...")
-    while True:
-        try:
-            candidates, recent_events = run_sniper_cycle(config, state)
-            print_sniper_dashboard(candidates, state, config, recent_events)
-            state["last_update"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            save_sniper_state(state, state_path)
-        except Exception as e:
-            logger.error("Sniper loop cycle error: %s", e, exc_info=True)
+    try:
+        while True:
+            try:
+                candidates, recent_events = run_sniper_cycle(config, state)
+                print_sniper_dashboard(candidates, state, config, recent_events)
+                state["last_update"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                save_sniper_state(state, state_path)
+            except Exception as e:
+                logger.error("Sniper loop cycle error: %s", e, exc_info=True)
 
-        time.sleep(15)
+            time.sleep(15)
+    except KeyboardInterrupt:
+        save_sniper_state(state, state_path)
+        print("\n🛑 Solana Sniper gracefully paused by user. State saved.")
 
 
 if __name__ == "__main__":
     main()
+
