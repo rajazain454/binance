@@ -104,6 +104,8 @@ def compute_symbol_snapshot(ticker: str, symbol: str, strategy_cfg: Dict[str, An
         "timestamp": candles[-1]["timestamp"],
         "price": curr_p,
         "prev_price": prev_p,
+        "open": float(candles[-1]["open"]),
+        "prev_open": float(candles[-2]["open"]),
         "high": highs[-1],
         "low": lows[-1],
         "prev_low": lows[-2],

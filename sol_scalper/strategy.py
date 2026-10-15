@@ -38,12 +38,13 @@ def evaluate_basket_entry(snapshot: Dict[str, Any], strategy_cfg: Dict[str, Any]
     if snapshot["rsi"] > max_entry_rsi:
         return False, f"Pullback bounce already overextended (RSI: {snapshot['rsi']:.1f} > {max_entry_rsi:.1f})"
 
-    # 3. Reversal Bar Check
-    reversal_candle = (price > prev_price) and (price >= ema_fast * 0.999)
+    # 3. Confirmed Green Reversal Bar Check
+    candle_is_green = price > snapshot.get("open", prev_price)
+    reversal_candle = (price > prev_price) and candle_is_green and (price >= ema_fast * 0.999)
     if not reversal_candle:
-        return False, f"Awaiting green reversal close above 9 EMA (${ema_fast:.4f})"
+        return False, f"Awaiting confirmed green reversal close above 9 EMA (${ema_fast:.4f})"
 
-    reason = f"2-Bar Pullback Bounce | RSI: {prev_rsi:.1f} -> {snapshot['rsi']:.1f} | EMA 9 (${ema_fast:.4f}) > 21 (${ema_slow:.4f})"
+    reason = f"Confirmed 15M Pullback Bounce | RSI: {prev_rsi:.1f} -> {snapshot['rsi']:.1f} | EMA 9 (${ema_fast:.4f}) > 21 (${ema_slow:.4f})"
     return True, reason
 
 
@@ -88,10 +89,12 @@ def evaluate_active_position(
     if gain_pct <= -sl_target:
         return True, "LOSS", f"🛡️ Risk Guard Stop Loss (-{abs(gain_pct):.2f}% <= -{sl_target:.2f}%)"
 
-    # 4. Timeout Cut (12 bars = 60 mins)
+    # 4. Timeout Cut
     entry_ts = pos.get("entry_time_ts", time.time())
     mins_held = (time.time() - entry_ts) / 60.0
-    if mins_held >= (float(trading_cfg.get("max_hold_bars", 12)) * 5.0):
+    bar_mins = 15.0 if "15" in str(trading_cfg.get("timeframe", "15m")) else 5.0
+    max_mins = float(trading_cfg.get("max_hold_bars", 24)) * bar_mins
+    if mins_held >= max_mins:
         outcome = "WIN" if gain_pct > 0 else "LOSS"
         return True, outcome, f"⏳ Stale Scalp Cut ({mins_held:.0f}m held | {gain_pct:+.2f}%)"
 

@@ -28,10 +28,10 @@
   },
   "trading": {
     "starting_capital_usd": 50.0,
-    "position_size_usd": 25.0,
+    "position_size_usd": 35.0,
     "dynamic_compounding": true,
-    "position_size_pct": 50.0,
-    "max_concurrent_positions": 2,
+    "position_size_pct": 70.0,
+    "max_concurrent_positions": 1,
     "take_profit_pct": 5.00,
     "stop_loss_pct": 2.00,
     "trailing_stop_enabled": true,
