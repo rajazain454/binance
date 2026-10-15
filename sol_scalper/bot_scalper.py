@@ -7,7 +7,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
