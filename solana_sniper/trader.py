@@ -270,6 +270,7 @@ def execute_snipe(
     state["balance_sol"] -= bullet_size
     mint = candidate["mint"]
     symbol = candidate["symbol"]
+    entry_p = float(candidate.get("price_usd", 0.0) or 0.0)
     is_live = config.get("mode", "paper").lower() == "live"
     sol_cfg = config.get("solana", {})
     tx_sig = None
