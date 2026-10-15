@@ -33,4 +33,5 @@ test_*.json
 # Solana Sniper Private Keys and State
 solana_sniper/config.json
 solana_sniper/state.json
+solana_sniper/*.csv
 
