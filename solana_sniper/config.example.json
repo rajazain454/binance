@@ -6,8 +6,8 @@
     "public_key": ""
   },
   "trading": {
-    "capital_sol": 1.0,
-    "bullet_size_sol": 0.1,
+    "capital_sol": 0.33,
+    "bullet_size_sol": 0.06,
     "max_open_positions": 3,
     "min_liquidity_usd": 25000.0,
     "min_5m_volume_usd": 15000.0,
