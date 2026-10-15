@@ -328,10 +328,31 @@ def execute_snipe(
     Executes a new token snipe entry (Paper or Live).
     """
     trading_cfg = config.get("trading", {})
-    bullet_size = trading_cfg.get("bullet_size_sol", 0.1)
-    
-    if state["balance_sol"] < bullet_size:
-        return None
+    gas_reserve = float(trading_cfg.get("gas_reserve_sol", 0.02))
+
+    if trading_cfg.get("dynamic_sizing", True):
+        bullet_pct = float(trading_cfg.get("bullet_pct", 0.18))
+        min_bullet = float(trading_cfg.get("min_bullet_sol", 0.05))
+        max_bullet = float(trading_cfg.get("max_bullet_sol", 2.0))
+
+        # Dynamic equity calculation (liquid balance + value in active open positions)
+        open_pos = state.get("open_positions", {})
+        alloc_sol = sum(p.get("allocated_sol", 0.0) for p in open_pos.values())
+        unrealized_sol = sum(p.get("allocated_sol", 0.0) * (p.get("multiplier", 1.0) - 1.0) for p in open_pos.values())
+        total_equity = state.get("balance_sol", 0.0) + alloc_sol + unrealized_sol
+
+        target_bullet = round(total_equity * bullet_pct, 4)
+        bullet_size = min(max_bullet, max(min_bullet, target_bullet))
+
+        # Ensure we do not breach the gas reserve
+        avail_sol = state["balance_sol"] - gas_reserve
+        if avail_sol < min_bullet:
+            return None
+        bullet_size = min(bullet_size, round(avail_sol, 4))
+    else:
+        bullet_size = float(trading_cfg.get("bullet_size_sol", 0.06))
+        if state["balance_sol"] < (bullet_size + gas_reserve):
+            return None
 
     state["balance_sol"] -= bullet_size
     mint = candidate["mint"]

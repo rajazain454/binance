@@ -8,6 +8,11 @@
   "trading": {
     "capital_sol": 0.33,
     "bullet_size_sol": 0.06,
+    "dynamic_sizing": true,
+    "bullet_pct": 0.18,
+    "min_bullet_sol": 0.05,
+    "max_bullet_sol": 2.0,
+    "gas_reserve_sol": 0.02,
     "max_open_positions": 3,
     "min_liquidity_usd": 25000.0,
     "min_5m_volume_usd": 15000.0,
