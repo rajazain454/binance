@@ -1,4 +1,4 @@
-"""Real-time Interactive CLI Terminal Dashboard for SOL/USDC Institutional Scalper."""
+"""Real-time Multi-Asset Interactive CLI Terminal Dashboard for JUP + SOL Quantitative Scalper."""
 
 import os
 import sys
@@ -17,21 +17,24 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 
 
 def print_scalper_dashboard(
-    snapshot: Dict[str, Any], 
+    snapshots: Dict[str, Dict[str, Any]], 
     state: Dict[str, Any], 
     config: Dict[str, Any], 
     recent_events: List[Dict[str, Any]] = None
 ):
     os.system("cls" if os.name == "nt" else "clear")
-    W = 88
+    W = 90
     mode = config.get("mode", "paper").upper()
     cash = state.get("cash_usd", 50.0)
-    pos = state.get("active_position")
+    open_pos = state.get("open_positions", {})
 
-    curr_price = snapshot["price"] if snapshot else 0.0
-    pos_val = (pos["allocated_usd"] * (curr_price / pos["entry_price_usd"])) if pos and curr_price > 0 else 0.0
+    # Calculate active position equity
+    pos_val = 0.0
+    for sym, p in open_pos.items():
+        curr_p = snapshots.get(sym, {}).get("price", p["entry_price_usd"])
+        pos_val += p["allocated_usd"] * (curr_p / p["entry_price_usd"])
+
     equity = cash + pos_val
-
     trades = state.get("trade_count", 0)
     wins = state.get("win_count", 0)
     losses = state.get("loss_count", 0)
@@ -39,45 +42,44 @@ def print_scalper_dashboard(
     pnl = state.get("realized_pnl_usd", 0.0)
 
     print("=" * W)
-    print(f"  ⚡ SOL/USDC QUANTITATIVE SYSTEMATIC SCALPER  |  MODE: {mode}  |  STATUS: ACTIVE")
+    print(f"  ⚡ QUANTITATIVE MULTI-ASSET SCALPER (JUP + SOL)  |  MODE: {mode}  |  STATUS: ACTIVE")
     print("=" * W)
     print(
-        f"  Total Equity: ${equity:,.2f}  |  Liquid Cash: ${cash:,.2f}  |  In Position: ${pos_val:,.2f}\n"
+        f"  Total Equity: ${equity:,.2f}  |  Liquid Cash: ${cash:,.2f}  |  In Positions: ${pos_val:,.2f}\n"
         f"  Realized PnL: {pnl:+,.2f} USD  |  Win Rate: {wr:.1f}% ({wins}W / {losses}L)  |  Trades: {trades}"
     )
     print("-" * W)
 
-    # 1. Market Technicals
-    if snapshot:
-        trend_badge = "🟢 " + snapshot["trend_state"] if snapshot["is_bullish_trend"] else ("🔴 " + snapshot["trend_state"] if snapshot["is_bearish_trend"] else "🟡 " + snapshot["trend_state"])
-        print("  MARKET INTELLIGENCE (1-MINUTE REAL-TIME FEED)")
-        print("-" * W)
+    # 1. Multi-Asset Market Radar
+    print("  5-MINUTE MARKET RADAR & INSTITUTIONAL INDICATORS")
+    print("-" * W)
+    print(f"  {'Asset':<10} {'Price':>12} {'RSI (14)':>10} {'EMA 9':>12} {'EMA 21':>12} {'EMA 50':>12} {'Trend':<14}")
+    print("  " + "-" * (W - 4))
+    for sym, snap in snapshots.items():
+        regime = "🟢 UPTREND" if snap["is_bullish"] else ("🔴 DOWNTREND" if snap["is_bearish"] else "🟡 CHOP")
         print(
-            f"  SOL Price: ${snapshot['price']:,.2f}   |   "
-            f"RSI (14): {snapshot['rsi']:.1f}   |   "
-            f"ATR: ${snapshot['atr']:.2f}\n"
-            f"  EMA 9: ${snapshot['ema_fast']:.2f}   |   "
-            f"EMA 21: ${snapshot['ema_slow']:.2f}   |   "
-            f"EMA 50: ${snapshot['ema_trend']:.2f}\n"
-            f"  Regime: {trend_badge}"
+            f"  {sym:<10} ${snap['price']:>11.4f} {snap['rsi']:>10.1f} "
+            f"${snap['ema_fast']:>11.4f} ${snap['ema_slow']:>11.4f} ${snap['ema_trend']:>11.4f} {regime:<14}"
         )
     print("-" * W)
 
-    # 2. Position Status
-    print("  CURRENT POSITION")
+    # 2. Open Scalp Positions
+    print("  ACTIVE POSITIONS")
     print("-" * W)
-    if not pos:
-        print("  🛡️ 100% Cash in USDC. Scanning 1m/5m chart for oversold pullback reversal...")
+    if not open_pos:
+        print("  🛡️ 100% Cash in USDC. Scanning JUP + SOL for 2-bar pullback bounce...")
     else:
-        gain_pct = (curr_price - pos["entry_price_usd"]) / pos["entry_price_usd"] * 100.0
-        pnl_usd = pos_val - pos["allocated_usd"]
-        status_color = "🟢" if gain_pct >= 0 else "🔴"
-        print(
-            f"  {status_color} Asset: SOL/USDC  |  Size: {pos['sol_amount']:.4f} SOL (${pos['allocated_usd']:.2f})\n"
-            f"  Entry: ${pos['entry_price_usd']:.2f}  |  Now: ${curr_price:.2f}  |  Gain: {gain_pct:+.2f}% ({pnl_usd:+.2f} USD)\n"
-            f"  🎯 Target TP (+1.8%): ${pos['target_tp_price']:.2f}  |  🛡️ Stop Loss (-0.9%): ${pos['target_sl_price']:.2f}\n"
-            f"  Peak Price: ${pos.get('peak_price_usd', pos['entry_price_usd']):.2f}"
-        )
+        for sym, p in open_pos.items():
+            curr_p = snapshots.get(sym, {}).get("price", p["entry_price_usd"])
+            gain_pct = (curr_p - p["entry_price_usd"]) / p["entry_price_usd"] * 100.0
+            cur_val = p["allocated_usd"] * (curr_p / p["entry_price_usd"])
+            net_d = cur_val - p["allocated_usd"]
+            color = "🟢" if gain_pct >= 0 else "🔴"
+            print(
+                f"  {color} [{sym}] Size: ${p['allocated_usd']:.2f} ({p['units']:.2f} units) | "
+                f"Entry: ${p['entry_price_usd']:.4f} | Now: ${curr_p:.4f} | Gain: {gain_pct:+.2f}% ({net_d:+.2f} USD)\n"
+                f"     🎯 Target TP (+1.2%): ${p['target_tp_price']:.4f} | 🛡️ Stop Loss (-0.6%): ${p['target_sl_price']:.4f}"
+            )
     print("-" * W)
 
     # 3. Recent Scalp Events
@@ -85,8 +87,8 @@ def print_scalper_dashboard(
         print("  RECENT SCALP EXECUTIONS")
         print("-" * W)
         for ev in recent_events[-3:]:
-            pnl_str = f"{ev.get('pnl_usd', 0.0):+.2f} USD" if "pnl_usd" in ev else ""
-            print(f"  [{ev.get('action')}] {ev.get('outcome', '')} {pnl_str} | {ev.get('reason')}")
+            pnl_s = f"{ev.get('pnl_usd', 0.0):+.2f} USD" if "pnl_usd" in ev else ""
+            print(f"  [{ev.get('action')}] {ev.get('symbol')} {ev.get('outcome', '')} {pnl_s} | {ev.get('reason')}")
         print("-" * W)
 
     print("=" * W + "\n")
@@ -94,7 +96,7 @@ def print_scalper_dashboard(
 
 if __name__ == "__main__":
     import json
-    from sol_scalper.market_data import compute_market_snapshot
+    from sol_scalper.market_data import compute_basket_snapshots
 
     cfg_path = "sol_scalper/config.json"
     st_path = "sol_scalper/state.json"
@@ -109,5 +111,5 @@ if __name__ == "__main__":
         with open(st_path, "r", encoding="utf-8") as f:
             st = json.load(f)
             
-    snap = compute_market_snapshot(cfg.get("strategy", {}))
-    print_scalper_dashboard(snap, st, cfg)
+    snaps = compute_basket_snapshots(cfg.get("basket", []), cfg.get("strategy", {}))
+    print_scalper_dashboard(snaps, st, cfg)

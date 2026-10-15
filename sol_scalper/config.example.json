@@ -1,35 +1,47 @@
 {
   "mode": "paper",
-  "symbol": "SOLUSDC",
+  "basket": [
+    {
+      "symbol": "JUPUSDC",
+      "ticker": "JUPUSDT",
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "decimals": 6
+    },
+    {
+      "symbol": "SOLUSDC",
+      "ticker": "SOLUSDT",
+      "mint": "So11111111111111111111111111111111111111112",
+      "decimals": 9
+    }
+  ],
   "solana": {
     "rpc_url": "https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY",
     "private_key": "",
     "public_key": "",
-    "usdc_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    "wsol_mint": "So11111111111111111111111111111111111111112"
+    "usdc_mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
   },
   "trading": {
     "starting_capital_usd": 50.0,
-    "position_size_usd": 25.0,
+    "position_size_usd": 20.0,
     "dynamic_compounding": true,
-    "position_size_pct": 50.0,
-    "take_profit_pct": 0.65,
-    "stop_loss_pct": 0.35,
+    "position_size_pct": 40.0,
+    "max_concurrent_positions": 2,
+    "take_profit_pct": 1.20,
+    "stop_loss_pct": 0.60,
     "trailing_stop_enabled": true,
-    "trailing_activation_pct": 0.40,
-    "trailing_callback_pct": 0.15,
-    "max_hold_seconds": 480,
-    "cooldown_seconds": 30
+    "trailing_activation_pct": 0.50,
+    "trailing_callback_pct": 0.25,
+    "max_hold_bars": 12,
+    "cooldown_seconds": 60
   },
   "strategy": {
-    "timeframe": "1m",
+    "timeframe": "5m",
     "ema_fast": 9,
     "ema_slow": 21,
     "ema_trend": 50,
     "rsi_period": 14,
-    "rsi_oversold_threshold": 42.0,
-    "rsi_overbought_threshold": 70.0,
-    "require_trend_alignment": true
+    "rsi_dip_threshold": 48.0,
+    "require_macro_trend": true
   },
   "discord": {
     "enabled": true,
