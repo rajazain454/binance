@@ -116,6 +116,29 @@ def execute_live_jupiter_swap(
         return False, f"Live swap error: {e}"
 
 
+def get_onchain_token_balance(rpc_url: str, user_pubkey: str, token_mint: str) -> int:
+    """Returns raw on-chain token balance (in base units) for the user's token account."""
+    try:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTokenAccountsByOwner",
+            "params": [
+                user_pubkey,
+                {"mint": token_mint},
+                {"encoding": "jsonParsed"}
+            ]
+        }
+        r = requests.post(rpc_url, json=payload, timeout=6).json()
+        accounts = r.get("result", {}).get("value", [])
+        if accounts:
+            amount_str = accounts[0]["account"]["data"]["parsed"]["info"]["tokenAmount"]["amount"]
+            return int(amount_str)
+    except Exception as e:
+        logger.warning("Error fetching on-chain token balance for %s: %s", token_mint, e)
+    return 0
+
+
 def fetch_live_token_price(mint: str) -> float:
     """Fetches real-time price in USD from DexScreener."""
     try:
@@ -148,6 +171,8 @@ def manage_active_positions(
     partial_harvests = []
     open_positions = state.setdefault("open_positions", {})
     positions_to_remove = []
+    is_live = config.get("mode", "paper").lower() == "live"
+    sol_cfg = config.get("solana", {})
 
     for mint, pos in open_positions.items():
         symbol = pos["symbol"]
@@ -175,6 +200,23 @@ def manage_active_positions(
             state["realized_pnl_sol"] += (rec_sol - (pos["allocated_sol"] * tp1_ratio))
             state["moonbags_harvested"] = state.get("moonbags_harvested", 0) + 1
             pos["allocated_sol"] *= (1.0 - tp1_ratio)
+
+            if is_live and sol_cfg.get("private_key"):
+                raw_bal = get_onchain_token_balance(sol_cfg.get("rpc_url"), sol_cfg.get("public_key"), mint)
+                if raw_bal > 0:
+                    sell_amount = int(raw_bal * tp1_ratio)
+                    ok, tx_or_err = execute_live_jupiter_swap(
+                        input_mint=mint,
+                        output_mint=WSOL_MINT,
+                        amount_lamports=sell_amount,
+                        user_pubkey=sol_cfg.get("public_key"),
+                        private_key_b58=sol_cfg.get("private_key"),
+                        rpc_url=sol_cfg.get("rpc_url")
+                    )
+                    if ok:
+                        logger.info("🎯 [LIVE TP1 SWAP SUCCESS] %s TX: https://solscan.io/tx/%s", symbol, tx_or_err)
+                    else:
+                        logger.error("❌ [LIVE TP1 SWAP FAILED] %s: %s", symbol, tx_or_err)
 
             harvest_ev = {
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
@@ -228,6 +270,23 @@ def manage_active_positions(
         if should_exit:
             positions_to_remove.append(mint)
             state.setdefault("cooldown_mints", {})[mint] = time.time()
+
+            if is_live and sol_cfg.get("private_key"):
+                raw_bal = get_onchain_token_balance(sol_cfg.get("rpc_url"), sol_cfg.get("public_key"), mint)
+                if raw_bal > 0:
+                    ok, tx_or_err = execute_live_jupiter_swap(
+                        input_mint=mint,
+                        output_mint=WSOL_MINT,
+                        amount_lamports=raw_bal,
+                        user_pubkey=sol_cfg.get("public_key"),
+                        private_key_b58=sol_cfg.get("private_key"),
+                        rpc_url=sol_cfg.get("rpc_url")
+                    )
+                    if ok:
+                        logger.info("🏁 [LIVE EXIT SWAP SUCCESS] %s TX: https://solscan.io/tx/%s", symbol, tx_or_err)
+                    else:
+                        logger.error("❌ [LIVE EXIT SWAP FAILED] %s: %s", symbol, tx_or_err)
+
             rem_sol = pos["allocated_sol"] * multiplier
             net_pnl = rem_sol - pos["allocated_sol"]
             state["balance_sol"] += rem_sol
