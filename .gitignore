@@ -29,3 +29,8 @@ test_*.json
 !data/.gitkeep
 !logs/.gitkeep
 !models/.gitkeep
+
+# Solana Sniper Private Keys and State
+solana_sniper/config.json
+solana_sniper/state.json
+
