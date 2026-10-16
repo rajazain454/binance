@@ -28,29 +28,36 @@ def fetch_historical_candles(symbol: str, interval: str = "5m", total_candles: i
         url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={batch_size}"
         if end_time:
             url += f"&endTime={end_time}"
-        try:
-            r = requests.get(url, headers={"User-Agent": "QuantBacktest/2.0"}, timeout=10)
-            if r.status_code != 200:
-                break
-            data = r.json()
-            if not data or not isinstance(data, list) or len(data) == 0:
-                break
-            batch = []
-            for k in data:
-                batch.append({
-                    "timestamp": int(k[0]),
-                    "open": float(k[1]),
-                    "high": float(k[2]),
-                    "low": float(k[3]),
-                    "close": float(k[4]),
-                    "volume": float(k[5]),
-                })
-            end_time = batch[0]["timestamp"] - 1
-            all_candles = batch + all_candles
-            if len(data) < batch_size:
-                break
-            time.sleep(0.08)
-        except Exception:
+        
+        success = False
+        for attempt in range(4):
+            try:
+                r = requests.get(url, headers={"User-Agent": "QuantBacktest/2.0"}, timeout=12)
+                if r.status_code == 200:
+                    data = r.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        batch = []
+                        for k in data:
+                            batch.append({
+                                "timestamp": int(k[0]),
+                                "open": float(k[1]),
+                                "high": float(k[2]),
+                                "low": float(k[3]),
+                                "close": float(k[4]),
+                                "volume": float(k[5]),
+                            })
+                        end_time = batch[0]["timestamp"] - 1
+                        all_candles = batch + all_candles
+                        success = True
+                        if len(data) < batch_size:
+                            return all_candles[-target:]
+                        time.sleep(0.12)
+                        break
+                time.sleep(0.5 * (attempt + 1))
+            except Exception:
+                time.sleep(0.5 * (attempt + 1))
+        
+        if not success:
             break
 
     return all_candles[-target:]

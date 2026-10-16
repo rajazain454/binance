@@ -48,7 +48,15 @@
     "rsi_period": 14,
     "rsi_dip_threshold": 48.0,
     "rsi_max_entry": 58.0,
-    "require_macro_trend": true
+    "require_macro_trend": true,
+    "btc_macro_filter": true,
+    "btc_timeframe": "1h",
+    "btc_min_rsi": 40.0,
+    "min_volume_ratio": 1.10,
+    "use_dynamic_atr": true,
+    "atr_period": 14,
+    "atr_sl_multiplier": 1.5,
+    "atr_tp_multiplier": 3.5
   },
   "discord": {
     "enabled": true,

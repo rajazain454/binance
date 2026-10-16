@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -20,10 +20,11 @@ def print_scalper_dashboard(
     snapshots: Dict[str, Dict[str, Any]], 
     state: Dict[str, Any], 
     config: Dict[str, Any], 
-    recent_events: List[Dict[str, Any]] = None
+    recent_events: List[Dict[str, Any]] = None,
+    btc_regime: Optional[Dict[str, Any]] = None
 ):
     os.system("cls" if os.name == "nt" else "clear")
-    W = 90
+    W = 92
     mode = config.get("mode", "paper").upper()
     cash = state.get("cash_usd", 50.0)
     open_pos = state.get("open_positions", {})
@@ -52,18 +53,29 @@ def print_scalper_dashboard(
         f"  Total Equity: ${equity:,.2f}  |  Liquid Cash: ${cash:,.2f}  |  In Positions: ${pos_val:,.2f}\n"
         f"  Realized PnL: {pnl:+,.2f} USD  |  Win Rate: {wr:.1f}% ({wins}W / {losses}L)  |  Trades: {trades}"
     )
+
+    # BTC Macro Gate Banner
+    if btc_regime:
+        gate_status = "🟢 ACTIVE / PERMITTED" if btc_regime.get("is_safe") else "🔴 HALTED / BLOCKED"
+        btc_p = btc_regime.get("price", 0.0)
+        btc_rsi = btc_regime.get("rsi", 50.0)
+        print(f"  BTC Macro Gate : {gate_status} (BTC: ${btc_p:,.0f} | 1H RSI: {btc_rsi:.1f} | {btc_regime.get('reason', '')})")
     print("-" * W)
 
     # 1. Multi-Asset Market Radar
-    print(f"  {tf} INSTITUTIONAL INDICATOR RADAR & PULLBACK TRACKER")
+    print(f"  {tf} INSTITUTIONAL RADAR (TREND + VOLUME + ATR VOLATILITY)")
     print("-" * W)
-    print(f"  {'Asset':<10} {'Price':>12} {'RSI (14)':>10} {'EMA 9':>12} {'EMA 21':>12} {'EMA 50':>12} {'Trend':<14}")
+    print(f"  {'Asset':<10} {'Price':>11} {'RSI':>7} {'Vol Ratio':>11} {'ATR (14)':>10} {'Trend':<14}")
     print("  " + "-" * (W - 4))
     for sym, snap in snapshots.items():
         regime = "🟢 UPTREND" if snap["is_bullish"] else ("🔴 DOWNTREND" if snap["is_bearish"] else "🟡 CHOP")
+        vol_r = snap.get("volume_ratio", 1.0)
+        vol_str = f"{vol_r:.2f}x"
+        atr_pct = snap.get("atr_pct", 1.5)
+        atr_str = f"±{atr_pct:.2f}%"
         print(
-            f"  {sym:<10} ${snap['price']:>11.4f} {snap['rsi']:>10.1f} "
-            f"${snap['ema_fast']:>11.4f} ${snap['ema_slow']:>11.4f} ${snap['ema_trend']:>11.4f} {regime:<14}"
+            f"  {sym:<10} ${snap['price']:>10.4f} {snap['rsi']:>7.1f} "
+            f"{vol_str:>11} {atr_str:>10} {regime:<14}"
         )
     print("-" * W)
 

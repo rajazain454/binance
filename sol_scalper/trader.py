@@ -124,18 +124,19 @@ def execute_buy_order(
     snapshot: Dict[str, Any], 
     state: Dict[str, Any], 
     config: Dict[str, Any], 
-    reason: str
+    reason: str,
+    dynamic_targets: Optional[Dict[str, float]] = None
 ) -> Optional[Dict[str, Any]]:
     """Opens a new position in the specified basket asset (Paper or Live)."""
     trading_cfg = config.get("trading", {})
     cash = state.get("cash_usd", 50.0)
 
-    # Position Sizing (e.g. 40% of cash or $20)
+    # Position Sizing (e.g. 70% of cash or $35)
     if trading_cfg.get("dynamic_compounding", True):
-        size_pct = float(trading_cfg.get("position_size_pct", 40.0)) / 100.0
+        size_pct = float(trading_cfg.get("position_size_pct", 70.0)) / 100.0
         pos_size_usd = max(10.0, round(cash * size_pct, 2))
     else:
-        pos_size_usd = float(trading_cfg.get("position_size_usd", 20.0))
+        pos_size_usd = float(trading_cfg.get("position_size_usd", 35.0))
 
     if cash < pos_size_usd or pos_size_usd < 5.0:
         return None
@@ -169,8 +170,14 @@ def execute_buy_order(
         tx_sig = res
         logger.info("🚀 [LIVE BUY BROADCAST] %s TX: https://solscan.io/tx/%s", symbol, tx_sig)
 
-    tp_pct = float(trading_cfg.get("take_profit_pct", 1.20))
-    sl_pct = float(trading_cfg.get("stop_loss_pct", 0.60))
+    d_targets = dynamic_targets or {}
+    tp_pct = float(d_targets.get("tp_pct", trading_cfg.get("take_profit_pct", 5.00)))
+    sl_pct = float(d_targets.get("sl_pct", trading_cfg.get("stop_loss_pct", 2.00)))
+    trailing_act = float(d_targets.get("trailing_act", trading_cfg.get("trailing_activation_pct", 2.50)))
+    trailing_cb = float(d_targets.get("trailing_cb", trading_cfg.get("trailing_callback_pct", 1.00)))
+
+    target_tp = round(entry_price * (1.0 + tp_pct / 100.0), 6)
+    target_sl = round(entry_price * (1.0 - sl_pct / 100.0), 6)
 
     new_pos = {
         "symbol": symbol,
@@ -180,15 +187,19 @@ def execute_buy_order(
         "peak_price_usd": entry_price,
         "allocated_usd": pos_size_usd,
         "units": units,
-        "target_tp_price": round(entry_price * (1.0 + tp_pct / 100.0), 6),
-        "target_sl_price": round(entry_price * (1.0 - sl_pct / 100.0), 6),
+        "tp_pct": tp_pct,
+        "sl_pct": sl_pct,
+        "trailing_act": trailing_act,
+        "trailing_cb": trailing_cb,
+        "target_tp_price": target_tp,
+        "target_sl_price": target_sl,
         "reason": reason,
         "tx_sig": tx_sig,
     }
 
     state.setdefault("open_positions", {})[symbol] = new_pos
     state["last_trade_time"] = time.time()
-    logger.info("🟢 [BUY] Bought %.4f %s at $%.4f ($%.2f allocated)", units, symbol, entry_price, pos_size_usd)
+    logger.info("🟢 [BUY] Bought %.4f %s at $%.4f ($%.2f allocated | TP: +%.1f%% / SL: -%.1f%%)", units, symbol, entry_price, pos_size_usd, tp_pct, sl_pct)
     return new_pos
 
 
