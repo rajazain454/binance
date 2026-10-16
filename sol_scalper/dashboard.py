@@ -23,7 +23,8 @@ def print_scalper_dashboard(
     recent_events: List[Dict[str, Any]] = None,
     btc_regime: Optional[Dict[str, Any]] = None
 ):
-    os.system("cls" if os.name == "nt" else "clear")
+    if sys.stdout and hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
+        os.system("cls" if os.name == "nt" else "clear")
     W = 92
     mode = config.get("mode", "paper").upper()
     cash = state.get("cash_usd", 50.0)
